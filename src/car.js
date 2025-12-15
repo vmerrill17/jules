@@ -84,19 +84,40 @@ export class Car {
         this.scene.add(this.mesh);
     }
 
-    update(input, delta) {
+    update(input, delta, track) {
         // Forward vector based on current rotation
         const forward = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
 
-        // 1. Apply Engine Force
-        if (input.up) {
-            this.velocity.addScaledVector(forward, this.acceleration * delta);
-        } else if (input.down) {
-            this.velocity.addScaledVector(forward, -this.acceleration * delta); // Reverse/Brake
+        // Check Track Surface
+        let dragFactor = 0.5; // Normal Air Resistance
+        let surfaceFriction = 1.0;
+
+        if (track) {
+            // We store lastU to optimize search, attach it to car
+            if (this.lastTrackU === undefined) this.lastTrackU = 0;
+
+            const trackState = track.getTrackState(this.position, this.lastTrackU);
+            this.lastTrackU = trackState.u;
+
+            if (!trackState.isOnTrack) {
+                // OFF ROAD!
+                dragFactor = 5.0; // Heavy drag
+                surfaceFriction = 0.5; // Less grip
+            }
         }
 
-        // 2. Drag / Air Resistance (Opposes velocity)
-        this.velocity.multiplyScalar(1 - (0.5 * delta));
+        // 1. Apply Engine Force
+        let accel = this.acceleration;
+        if (surfaceFriction < 1.0) accel *= 0.5; // Less acceleration on grass
+
+        if (input.up) {
+            this.velocity.addScaledVector(forward, accel * delta);
+        } else if (input.down) {
+            this.velocity.addScaledVector(forward, -accel * delta);
+        }
+
+        // 2. Drag (Opposes velocity)
+        this.velocity.multiplyScalar(1 - (dragFactor * delta));
 
         // 3. Steering (Rotate Heading)
         // Speed factor: steer better at medium speeds, worse at very high/low

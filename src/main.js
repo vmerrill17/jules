@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Car } from './car.js';
+import { AICar } from './aiCar.js';
 import { Track } from './track.js';
 
 // Setup
@@ -34,6 +35,7 @@ scene.add(dirLight);
 // Game Objects
 const track = new Track(scene);
 const car = new Car(scene);
+const aiCars = [];
 
 // State
 let gameState = 'MENU'; // MENU, PLAYING
@@ -44,10 +46,25 @@ const hudDiv = document.getElementById('hud');
 
 function startGame(trackType) {
     track.loadTrack(trackType);
-    car.reset(track.startPoint); // You might need to offset slightly so it's not Inside the track mesh
-    car.position.set(0, 0.5, 0); // Hard reset to generic start, ideally track exposes start pos
+    car.reset(track.startPoint);
     car.velocity.set(0,0,0);
     car.heading = 0;
+
+    // Spawn AI
+    // Clear old AI
+    aiCars.forEach(ai => scene.remove(ai.mesh));
+    aiCars.length = 0;
+
+    const colors = [0x0000FF, 0x00FF00, 0xFFFF00, 0xFF00FF];
+    for(let i=0; i<3; i++) {
+        const ai = new AICar(scene, colors[i]);
+        // Offset start positions
+        const offsetZ = (i+1) * -8;
+        const offsetX = ((i % 2) === 0 ? 5 : -5);
+
+        ai.reset(new THREE.Vector3(track.startPoint.x + offsetX, 0.5, track.startPoint.z + offsetZ));
+        aiCars.push(ai);
+    }
 
     gameState = 'PLAYING';
     menuDiv.style.display = 'none';
@@ -93,7 +110,33 @@ function animate() {
         const delta = Math.min(clock.getDelta(), 0.1);
 
         // Update Car
-        car.update(input, delta);
+        car.update(input, delta, track);
+
+        // Update AI
+        aiCars.forEach(ai => ai.update(delta, track));
+
+        // Collisions (Simple Sphere)
+        const allCars = [car, ...aiCars];
+        for (let i = 0; i < allCars.length; i++) {
+            for (let j = i + 1; j < allCars.length; j++) {
+                const c1 = allCars[i];
+                const c2 = allCars[j];
+                const dist = c1.position.distanceTo(c2.position);
+                const minDist = 2.5; // Car radii sum approx
+
+                if (dist < minDist) {
+                    // Push apart
+                    const dir = new THREE.Vector3().subVectors(c1.position, c2.position).normalize();
+                    const push = dir.multiplyScalar((minDist - dist) * 0.5);
+                    c1.position.add(push);
+                    c2.position.sub(push);
+
+                    // Transfer energy? For now just position resolve + minor friction
+                    c1.velocity.multiplyScalar(0.9);
+                    c2.velocity.multiplyScalar(0.9);
+                }
+            }
+        }
 
         // Camera Follow
         const relativeOffset = new THREE.Vector3(0, 6, -12); // Higher and further back
