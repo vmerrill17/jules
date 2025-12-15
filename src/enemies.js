@@ -18,23 +18,42 @@ export class EnemyManager {
         this.spawnInterval = 1.0; // Seconds between spawns
         this.isNight = false;
 
-        this.enemyGeometry = new THREE.SphereGeometry(0.4, 8, 8);
-        this.enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000 }); // Red as per checklist
+        // Enemy Types Configuration
+        this.types = {
+            standard: { color: 0xFF0000, size: 0.4, speed: 2.0, hp: 20 },
+            fast: { color: 0xFFFF00, size: 0.3, speed: 4.0, hp: 10 },
+            tank: { color: 0x000000, size: 0.6, speed: 1.0, hp: 50 }
+        };
 
-        // Instanced Mesh for Enemies
-        this.maxEnemies = 1000;
-        this.enemyInstancedMesh = new THREE.InstancedMesh(this.enemyGeometry, this.enemyMaterial, this.maxEnemies);
-        this.enemyInstancedMesh.frustumCulled = false; // Prevent culling when instances move
-        this.scene.add(this.enemyInstancedMesh);
+        this.meshes = {};
+        this.freeIndices = {};
+        this.maxEnemiesPerType = 500;
 
-        // Initialize all instances to hidden
+        // Initialize Meshes for each type
         this.dummy = new THREE.Object3D();
         this.dummy.position.set(0, -100, 0);
         this.dummy.updateMatrix();
-        for (let i = 0; i < this.maxEnemies; i++) {
-            this.enemyInstancedMesh.setMatrixAt(i, this.dummy.matrix);
+
+        for (const [key, config] of Object.entries(this.types)) {
+            const geometry = new THREE.SphereGeometry(config.size, 8, 8);
+            const material = new THREE.MeshStandardMaterial({ color: config.color });
+            const mesh = new THREE.InstancedMesh(geometry, material, this.maxEnemiesPerType);
+            mesh.frustumCulled = false;
+            this.scene.add(mesh);
+            this.meshes[key] = mesh;
+
+            // Init hidden
+            for (let i = 0; i < this.maxEnemiesPerType; i++) {
+                mesh.setMatrixAt(i, this.dummy.matrix);
+            }
+            mesh.instanceMatrix.needsUpdate = true;
+
+            // Free indices
+            this.freeIndices[key] = [];
+            for (let i = 0; i < this.maxEnemiesPerType; i++) {
+                this.freeIndices[key].push(i);
+            }
         }
-        this.enemyInstancedMesh.instanceMatrix.needsUpdate = true;
     }
 
     setNight(isNight) {
@@ -46,6 +65,11 @@ export class EnemyManager {
     }
 
     spawnEnemy() {
+        // Pick random type
+        const keys = Object.keys(this.types);
+        const typeKey = keys[Math.floor(Math.random() * keys.length)];
+        const config = this.types[typeKey];
+
         // Pick random edge
         let x, y;
         if (Math.random() < 0.5) {
@@ -60,37 +84,25 @@ export class EnemyManager {
 
         const pos = this.grid.gridToWorld(x, y);
 
-        // Find available instance slot
-        // For simplicity, let's just use indices. We need to manage free indices.
-        // Or simpler: We keep a list of active enemies and map them to indices 0..N-1?
-        // No, better to have each enemy object hold its instance ID.
+        if (this.freeIndices[typeKey].length === 0) return; // Full
 
-        // Naive pool: linear search for first hole? Or just append if we don't care about fragmentation?
-        // Better: Stack of free indices.
-        if (!this.freeIndices) {
-            this.freeIndices = [];
-            for (let i = 0; i < this.maxEnemies; i++) {
-                this.freeIndices.push(i);
-            }
-        }
-
-        if (this.freeIndices.length === 0) return; // Full
-
-        const instanceId = this.freeIndices.pop();
+        const instanceId = this.freeIndices[typeKey].pop();
 
         const dummy = new THREE.Object3D();
         dummy.position.set(pos.x, 0.4, pos.z);
         dummy.updateMatrix();
-        this.enemyInstancedMesh.setMatrixAt(instanceId, dummy.matrix);
-        this.enemyInstancedMesh.instanceMatrix.needsUpdate = true;
+
+        this.meshes[typeKey].setMatrixAt(instanceId, dummy.matrix);
+        this.meshes[typeKey].instanceMatrix.needsUpdate = true;
 
         this.enemies.push({
-            instanceId: instanceId, // Track instance ID
+            type: typeKey,
+            instanceId: instanceId,
             x: x,
             y: y,
             worldPos: new THREE.Vector3(pos.x, 0.4, pos.z),
-            speed: 2.0,
-            hp: 20
+            speed: config.speed,
+            hp: config.hp
         });
     }
 
@@ -113,10 +125,10 @@ export class EnemyManager {
                 // Kill enemy
                 this.dummy.position.set(0, -100, 0);
                 this.dummy.updateMatrix();
-                this.enemyInstancedMesh.setMatrixAt(enemy.instanceId, this.dummy.matrix);
-                needsUpdate = true;
+                this.meshes[enemy.type].setMatrixAt(enemy.instanceId, this.dummy.matrix);
+                this.meshes[enemy.type].instanceMatrix.needsUpdate = true;
 
-                this.freeIndices.push(enemy.instanceId);
+                this.freeIndices[enemy.type].push(enemy.instanceId);
                 this.enemies.splice(i, 1);
                 continue;
             }
@@ -182,8 +194,8 @@ export class EnemyManager {
         const dummy = new THREE.Object3D();
         dummy.position.copy(enemy.worldPos);
         dummy.updateMatrix();
-        this.enemyInstancedMesh.setMatrixAt(enemy.instanceId, dummy.matrix);
-        this.enemyInstancedMesh.instanceMatrix.needsUpdate = true;
+        this.meshes[enemy.type].setMatrixAt(enemy.instanceId, dummy.matrix);
+        this.meshes[enemy.type].instanceMatrix.needsUpdate = true;
     }
 
     attackBuilding(enemy, building, delta) {

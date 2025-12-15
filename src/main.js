@@ -4,6 +4,7 @@ import { GameLoop } from './gameLoop.js';
 import { Grid } from './grid.js';
 import { BuildingManager } from './buildings.js';
 import { EnemyManager } from './enemies.js';
+import { VillagerManager } from './villagers.js';
 import { CameraControls } from './controls.js';
 import { ResourceManager } from './resources.js';
 
@@ -43,6 +44,7 @@ resourceManager.updateUI();
 // Managers
 const buildingManager = new BuildingManager(scene, grid, resourceManager);
 const enemyManager = new EnemyManager(scene, grid, buildingManager);
+const villagerManager = new VillagerManager(scene, grid, resourceManager, buildingManager);
 const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
 
 // Controls
@@ -103,6 +105,7 @@ function animate() {
     buildingManager.update(delta, enemyManager.enemies);
 
     enemyManager.update(delta);
+    villagerManager.update(delta);
 
     controls.update(delta);
 
