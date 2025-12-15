@@ -87,3 +87,21 @@ button:hover {
     color: #aaa;
     margin-top: 20px;
 }
+
+.stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.btn-mini {
+    padding: 2px 8px;
+    font-size: 0.8em;
+    margin-left: 5px;
+    min-width: 25px;
+}
+
+.stat-controls {
+    display: flex;
+}

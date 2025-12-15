@@ -105,14 +105,37 @@ export class SelectionManager {
             });
 
             html += `<h4>Workforce</h4>`;
-            html += `<p>Wood: ${stats.wood.assigned} / ${stats.wood.capacity}</p>`;
-            html += `<p>Gold: ${stats.gold.assigned} / ${stats.gold.capacity}</p>`;
-            html += `<p>Stone: ${stats.stone.assigned} / ${stats.stone.capacity}</p>`;
-            html += `<p>Food: ${stats.food.assigned} / ${stats.food.capacity}</p>`;
+
+            const makeRow = (label, stat, type) => {
+                const addDisabled = (stat.assigned >= stat.capacity || idleCount === 0) ? 'disabled' : '';
+                const subDisabled = (stat.assigned === 0) ? 'disabled' : '';
+                return `<div class="stat-row">
+                    <span>${label}: ${stat.assigned} / ${stat.capacity}</span>
+                    <div class="stat-controls">
+                        <button class="btn-mini" id="btn-add-${type}" ${addDisabled}>+</button>
+                        <button class="btn-mini" id="btn-sub-${type}" ${subDisabled}>-</button>
+                    </div>
+                </div>`;
+            };
+
+            html += makeRow('Wood', stats.wood, 'wood');
+            html += makeRow('Gold', stats.gold, 'gold');
+            html += makeRow('Stone', stats.stone, 'stone');
+            html += makeRow('Food', stats.food, 'food');
 
             html += `<p class="hint">Select a building to manage it.</p>`;
             this.info.innerHTML = html;
             this.actions.innerHTML = '';
+
+            // Bind global buttons
+            const types = ['wood', 'gold', 'stone', 'food'];
+            types.forEach(type => {
+                const btnAdd = document.getElementById(`btn-add-${type}`);
+                if (btnAdd) btnAdd.onclick = () => this.assignGlobal(type);
+
+                const btnSub = document.getElementById(`btn-sub-${type}`);
+                if (btnSub) btnSub.onclick = () => this.unassignGlobal(type);
+            });
             return;
         }
 
@@ -179,6 +202,44 @@ export class SelectionManager {
     trainSoldier() {
         if (this.soldierManager) {
             this.soldierManager.trainSoldier(this.selectedBuilding);
+        }
+    }
+
+    assignGlobal(resourceType) {
+        let buildingTypes = [];
+        if (resourceType === 'wood') buildingTypes = ['mill'];
+        if (resourceType === 'gold') buildingTypes = ['goldmine'];
+        if (resourceType === 'stone') buildingTypes = ['quarry'];
+        if (resourceType === 'food') buildingTypes = ['farm', 'hunter'];
+
+        // Find candidate building with space
+        const candidates = this.buildingManager.buildings.filter(b =>
+            buildingTypes.includes(b.type) &&
+            this.villagerManager.getAssignedCount(b) < (b.maxWorkers || 5)
+        );
+
+        if (candidates.length > 0) {
+            this.villagerManager.assignVillagerTo(candidates[0]);
+            this.updatePanel();
+        }
+    }
+
+    unassignGlobal(resourceType) {
+        let buildingTypes = [];
+        if (resourceType === 'wood') buildingTypes = ['mill'];
+        if (resourceType === 'gold') buildingTypes = ['goldmine'];
+        if (resourceType === 'stone') buildingTypes = ['quarry'];
+        if (resourceType === 'food') buildingTypes = ['farm', 'hunter'];
+
+        // Find building with workers
+        const candidates = this.buildingManager.buildings.filter(b =>
+            buildingTypes.includes(b.type) &&
+            this.villagerManager.getAssignedCount(b) > 0
+        );
+
+        if (candidates.length > 0) {
+            this.villagerManager.unassignVillagerFrom(candidates[0]);
+            this.updatePanel();
         }
     }
 
