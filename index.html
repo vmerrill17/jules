@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build by Day, Survive by Night</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <div id="ui-container">
+        <div id="resources">
+            <span>Wood: <span id="wood-count">0</span></span>
+            <span>Gold: <span id="gold-count">0</span></span>
+            <span>Pop: <span id="pop-count">0</span></span>
+        </div>
+        <div id="timer">Phase: <span id="phase-name">Day</span> | Time: <span id="time-remaining">00:00</span></div>
+        <div id="controls">
+            <button id="btn-house">House (10W)</button>
+            <button id="btn-mill">Mill (50G)</button>
+            <button id="btn-wall">Wall (5W)</button>
+            <button id="btn-tower">Tower (20W, 10G)</button>
+            <button id="btn-night">Start Night</button>
+        </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
