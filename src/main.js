@@ -7,6 +7,7 @@ import { EnemyManager } from './enemies.js';
 import { VillagerManager } from './villagers.js';
 import { CameraControls } from './controls.js';
 import { ResourceManager } from './resources.js';
+import { ParticleSystem } from './particles.js';
 
 console.log('Game starting...');
 
@@ -41,9 +42,12 @@ resourceManager.wood = 100; // Starting wood
 resourceManager.gold = 100; // Starting gold
 resourceManager.updateUI();
 
+// Particles
+const particleSystem = new ParticleSystem(scene);
+
 // Managers
-const buildingManager = new BuildingManager(scene, grid, resourceManager);
-const enemyManager = new EnemyManager(scene, grid, buildingManager);
+const buildingManager = new BuildingManager(scene, grid, resourceManager, particleSystem);
+const enemyManager = new EnemyManager(scene, grid, buildingManager, particleSystem);
 const villagerManager = new VillagerManager(scene, grid, resourceManager, buildingManager);
 const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
 
@@ -106,6 +110,7 @@ function animate() {
 
     enemyManager.update(delta);
     villagerManager.update(delta);
+    particleSystem.update(delta);
 
     controls.update(delta);
 

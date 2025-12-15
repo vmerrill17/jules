@@ -3,10 +3,11 @@ import * as THREE from 'three';
 import { Pathfinding } from './pathfinding.js';
 
 export class EnemyManager {
-    constructor(scene, grid, buildingManager) {
+    constructor(scene, grid, buildingManager, particleSystem) {
         this.scene = scene;
         this.grid = grid;
         this.buildingManager = buildingManager;
+        this.particleSystem = particleSystem;
         this.enemies = [];
         this.pathfinding = new Pathfinding(grid);
 
@@ -56,8 +57,13 @@ export class EnemyManager {
         }
     }
 
-    setNight(isNight) {
+    setNight(isNight, dayCount = 1) {
         this.isNight = isNight;
+        this.dayCount = dayCount;
+        // Adjust spawn interval based on difficulty (dayCount)
+        // Day 1: 1.0s, Day 10: 0.1s?
+        this.spawnInterval = Math.max(0.2, 1.0 - (this.dayCount * 0.1));
+
         // Recalculate flow field when night starts in case walls changed
         if (isNight) {
              this.pathfinding.calculateFlowField();
@@ -65,9 +71,29 @@ export class EnemyManager {
     }
 
     spawnEnemy() {
-        // Pick random type
-        const keys = Object.keys(this.types);
-        const typeKey = keys[Math.floor(Math.random() * keys.length)];
+        // Pick type based on difficulty
+        // Day 1: Mostly Standard
+        // Day 3+: Add Fast
+        // Day 5+: Add Tanks
+
+        let typeKey = 'standard';
+        const rand = Math.random();
+
+        if (this.dayCount >= 5) {
+            // Mix of all
+            if (rand < 0.2) typeKey = 'tank';
+            else if (rand < 0.5) typeKey = 'fast';
+            else typeKey = 'standard';
+        } else if (this.dayCount >= 3) {
+            // Standard + Fast
+            if (rand < 0.4) typeKey = 'fast';
+            else typeKey = 'standard';
+        } else {
+            // Mostly Standard
+            if (rand < 0.1) typeKey = 'fast'; // Rare fast one
+            else typeKey = 'standard';
+        }
+
         const config = this.types[typeKey];
 
         // Pick random edge
@@ -123,6 +149,10 @@ export class EnemyManager {
 
             if (enemy.hp <= 0) {
                 // Kill enemy
+                if (this.particleSystem) {
+                    this.particleSystem.emit(enemy.worldPos, new THREE.Color(0xFF0000));
+                }
+
                 this.dummy.position.set(0, -100, 0);
                 this.dummy.updateMatrix();
                 this.meshes[enemy.type].setMatrixAt(enemy.instanceId, this.dummy.matrix);

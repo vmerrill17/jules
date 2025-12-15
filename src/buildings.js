@@ -2,11 +2,17 @@
 import * as THREE from 'three';
 
 export class BuildingManager {
-    constructor(scene, grid, resourceManager) {
+    constructor(scene, grid, resourceManager, particleSystem) {
         this.scene = scene;
         this.grid = grid;
         this.resourceManager = resourceManager;
+        this.particleSystem = particleSystem;
         this.buildings = [];
+
+        // Projectiles
+        this.projectiles = [];
+        this.projectileGeometry = new THREE.SphereGeometry(0.1, 4, 4);
+        this.projectileMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
 
         // Geometries and Materials
         this.wallGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -199,13 +205,38 @@ export class BuildingManager {
         console.log(`Building destroyed at ${building.x}, ${building.y}`);
 
         if (building.type === 'towncenter') {
-            alert("Game Over! Town Center Destroyed.");
-            // Reload or stop game
-            window.location.reload();
+            const gameOver = document.getElementById('game-over');
+            if (gameOver) gameOver.style.display = 'flex';
         }
     }
 
     update(delta, enemies) {
+        // Update Projectiles
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            const dir = new THREE.Vector3().subVectors(p.target, p.mesh.position).normalize();
+            const dist = p.mesh.position.distanceTo(p.target);
+
+            if (dist < 0.5 || p.mesh.position.y < 0) { // Hit
+                this.scene.remove(p.mesh);
+                this.projectiles.splice(i, 1);
+                // Damage?
+                // Logic was: Tower fires instantly.
+                // We should move damage logic here if we want projectile to carry damage.
+                // But `enemies` list reference is tricky to match back to specific enemy object unless we store ID.
+                // For "visuals only" projectile, we keep damage instant or pass enemy ref.
+                // Let's pass enemy ref.
+                if (p.enemy && p.enemy.hp > 0) {
+                    p.enemy.hp -= p.damage;
+                    if (this.particleSystem) {
+                         this.particleSystem.emit(p.mesh.position, new THREE.Color(0xFFFF00));
+                    }
+                }
+            } else {
+                p.mesh.position.addScaledVector(dir, 10 * delta); // Speed 10
+            }
+        }
+
         // Handle passive income from mills and goldmines
         const mills = this.buildings.filter(b => b.type === 'mill').length;
         if (mills > 0) {
@@ -268,31 +299,24 @@ export class BuildingManager {
         }
 
         if (closestEnemy) {
-            // Shoot!
-            // console.log("Tower fired!"); // Log spam
-            this.drawProjectile(tower.mesh.position, closestEnemy.worldPos);
-
-            if (!closestEnemy.hp) closestEnemy.hp = 20;
-            closestEnemy.hp -= tower.damage;
-
+            // Spawn Projectile
+            this.spawnProjectile(tower.mesh.position, closestEnemy, tower.damage);
             tower.cooldown = 1.0 / tower.fireRate;
         }
     }
 
-    drawProjectile(start, end) {
-        const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
-        const points = [];
-        points.push(new THREE.Vector3(start.x, 1.5, start.z)); // Tower top
-        points.push(new THREE.Vector3(end.x, 0.4, end.z)); // Enemy center
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const line = new THREE.Line(geometry, material);
-        this.scene.add(line);
+    spawnProjectile(start, enemy, damage) {
+        const mesh = new THREE.Mesh(this.projectileGeometry, this.projectileMaterial);
+        mesh.position.set(start.x, 1.5, start.z);
+        this.scene.add(mesh);
 
-        // Remove after short duration
-        setTimeout(() => {
-            this.scene.remove(line);
-            geometry.dispose();
-            material.dispose();
-        }, 100);
+        this.projectiles.push({
+            mesh: mesh,
+            target: enemy.worldPos, // This is a Vector3 reference, so it updates if enemy moves?
+            // Wait, worldPos in enemy logic is updated. Yes.
+            // But if enemy dies, worldPos might be stale or recycled.
+            enemy: enemy,
+            damage: damage
+        });
     }
 }

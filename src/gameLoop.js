@@ -9,6 +9,7 @@ export class GameLoop {
         this.enemyManager = enemyManager;
         this.phase = 'day'; // 'day' or 'night'
         this.timer = 120; // 2 minutes for day
+        this.dayCount = 1;
 
         // UI Elements
         this.phaseElement = document.getElementById('phase-name');
@@ -80,7 +81,7 @@ export class GameLoop {
     }
 
     updateUI() {
-        if (this.phaseElement) this.phaseElement.textContent = this.phase.toUpperCase();
+        if (this.phaseElement) this.phaseElement.textContent = `${this.phase.toUpperCase()} ${this.dayCount}`;
         if (this.timeElement) {
             const minutes = Math.floor(this.timer / 60);
             const seconds = Math.floor(this.timer % 60);
