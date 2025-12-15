@@ -73,7 +73,9 @@ export class BuildingManager {
         };
 
         // Place initial Town Center
-        this.placeBuilding(0, 0, 'towncenter');
+        const centerX = Math.floor(grid.width / 2);
+        const centerY = Math.floor(grid.height / 2);
+        this.placeBuilding(centerX, centerY, 'towncenter');
     }
 
     placeBuilding(x, y, type) {

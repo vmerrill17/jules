@@ -7,7 +7,7 @@ export class CameraControls {
 
         this.moveSpeed = 0.5;
         this.zoomSpeed = 1.0;
-        this.minZoom = 5;
+        this.minZoom = 2;
         this.maxZoom = 50;
 
         this.keys = {
