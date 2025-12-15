@@ -11,6 +11,7 @@ import { ResourceManager } from './resources.js';
 import { ParticleSystem } from './particles.js';
 import { SelectionManager } from './selection.js';
 import { InteractionManager } from './interaction.js';
+import { TechManager } from './tech.js';
 
 console.log('Game starting...');
 
@@ -56,6 +57,9 @@ resourceManager.wood = 100; // Starting wood
 resourceManager.gold = 100; // Starting gold
 resourceManager.updateUI();
 
+// Tech
+const techManager = new TechManager(resourceManager);
+
 // Particles
 const particleSystem = new ParticleSystem(scene);
 
@@ -67,7 +71,7 @@ const soldierManager = new SoldierManager(scene, grid, enemyManager);
 const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
 
 // Selection
-const selectionManager = new SelectionManager(scene, camera, grid, buildingManager, villagerManager, soldierManager);
+const selectionManager = new SelectionManager(scene, camera, grid, buildingManager, villagerManager, soldierManager, techManager);
 
 // Interaction
 const interactionManager = new InteractionManager(scene, camera, grid, buildingManager, selectionManager);
@@ -77,16 +81,39 @@ interactionManager.setTool('wall'); // Default tool
 const controls = new CameraControls(camera, renderer.domElement);
 
 // UI bindings
-document.getElementById('btn-house').addEventListener('click', () => interactionManager.setTool('house'));
-document.getElementById('btn-mill').addEventListener('click', () => interactionManager.setTool('mill'));
-document.getElementById('btn-wall').addEventListener('click', () => interactionManager.setTool('wall'));
-document.getElementById('btn-tower').addEventListener('click', () => interactionManager.setTool('tower'));
-document.getElementById('btn-goldmine').addEventListener('click', () => interactionManager.setTool('goldmine'));
-document.getElementById('btn-quarry').addEventListener('click', () => interactionManager.setTool('quarry'));
-document.getElementById('btn-farm').addEventListener('click', () => interactionManager.setTool('farm'));
-document.getElementById('btn-hunter').addEventListener('click', () => interactionManager.setTool('hunter'));
-document.getElementById('btn-barracks').addEventListener('click', () => interactionManager.setTool('barracks'));
-document.getElementById('btn-trap').addEventListener('click', () => interactionManager.setTool('trap'));
+const buttons = {
+    'house': document.getElementById('btn-house'),
+    'mill': document.getElementById('btn-mill'),
+    'wall': document.getElementById('btn-wall'),
+    'tower': document.getElementById('btn-tower'),
+    'goldmine': document.getElementById('btn-goldmine'),
+    'quarry': document.getElementById('btn-quarry'),
+    'farm': document.getElementById('btn-farm'),
+    'hunter': document.getElementById('btn-hunter'),
+    'barracks': document.getElementById('btn-barracks'),
+    'trap': document.getElementById('btn-trap')
+};
+
+for (const [key, btn] of Object.entries(buttons)) {
+    btn.addEventListener('click', () => {
+        if (techManager.isUnlocked(key)) {
+            interactionManager.setTool(key);
+        }
+    });
+}
+
+// UI Update Loop for buttons
+setInterval(() => {
+    for (const [key, btn] of Object.entries(buttons)) {
+        if (techManager.isUnlocked(key)) {
+            btn.style.opacity = 1.0;
+            btn.disabled = false;
+        } else {
+            btn.style.opacity = 0.3;
+            btn.disabled = true;
+        }
+    }
+}, 500);
 
 // Window resize
 window.addEventListener('resize', () => {

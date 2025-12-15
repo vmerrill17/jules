@@ -2,13 +2,14 @@
 import * as THREE from 'three';
 
 export class SelectionManager {
-    constructor(scene, camera, grid, buildingManager, villagerManager, soldierManager) {
+    constructor(scene, camera, grid, buildingManager, villagerManager, soldierManager, techManager) {
         this.scene = scene;
         this.camera = camera;
         this.grid = grid;
         this.buildingManager = buildingManager;
         this.villagerManager = villagerManager;
         this.soldierManager = soldierManager;
+        this.techManager = techManager;
 
         this.selectedBuilding = null;
 
@@ -143,9 +144,27 @@ export class SelectionManager {
         const assigned = this.villagerManager.getAssignedCount(b);
 
         let html = `<h3>${b.type.toUpperCase()}</h3>`;
-        html += `<p>HP: ${b.hp} / ${b.maxHp}</p>`;
+        html += `<p>HP: ${Math.floor(b.hp)} / ${b.maxHp}</p>`;
 
         let actionsHtml = '';
+
+        // Town Center Upgrade
+        if (b.type === 'towncenter') {
+            if (this.techManager.canUpgradeAge()) {
+                const cost = this.techManager.getUpgradeCost();
+                let costStr = '';
+                if (cost.wood) costStr += cost.wood + 'W ';
+                if (cost.gold) costStr += cost.gold + 'G ';
+                if (cost.stone) costStr += cost.stone + 'S ';
+                if (cost.food) costStr += cost.food + 'F ';
+
+                actionsHtml += `<button id="btn-upgrade-age">Advance to Age ${this.techManager.age + 1} (${costStr})</button>`;
+            } else if (this.techManager.age < 3) {
+                 actionsHtml += `<p class="hint">Need more resources to advance Age.</p>`;
+            } else {
+                 actionsHtml += `<p class="hint">Max Age Reached.</p>`;
+            }
+        }
 
         // Worker Assignment
         if (['mill', 'goldmine', 'quarry', 'farm', 'hunter'].includes(b.type)) {
@@ -177,6 +196,13 @@ export class SelectionManager {
 
         const btnTrain = document.getElementById('btn-train-soldier');
         if (btnTrain) btnTrain.onclick = () => this.trainSoldier();
+
+        const btnUpgrade = document.getElementById('btn-upgrade-age');
+        if (btnUpgrade) btnUpgrade.onclick = () => {
+             if (this.techManager.upgradeAge()) {
+                 this.updatePanel();
+             }
+        };
     }
 
     assignVillager() {
