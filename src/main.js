@@ -121,6 +121,7 @@ function animate() {
     enemyManager.update(delta);
     villagerManager.update(delta);
     soldierManager.update(delta);
+    selectionManager.update(delta); // Update UI
     particleSystem.update(delta);
 
     controls.update(delta);

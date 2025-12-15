@@ -20,9 +20,18 @@ export class SelectionManager {
         this.info = document.getElementById('selection-info');
         this.actions = document.getElementById('selection-actions');
 
+        this.updateTimer = 0;
         this.updatePanel();
 
         window.addEventListener('mousedown', (event) => this.onMouseDown(event));
+    }
+
+    update(delta) {
+        this.updateTimer += delta;
+        if (this.updateTimer > 0.5) {
+            this.updatePanel();
+            this.updateTimer = 0;
+        }
     }
 
     onMouseDown(event) {
@@ -69,6 +78,38 @@ export class SelectionManager {
             html += `<p>Population: ${totalPop} / ${maxPop}</p>`;
             html += `<p>Idle Villagers: ${idleCount}</p>`;
             html += `<p>Soldiers: ${this.soldierManager ? this.soldierManager.soldiers.length : 0}</p>`;
+
+            // Workforce Stats
+            const stats = {
+                wood: { assigned: 0, capacity: 0 },
+                gold: { assigned: 0, capacity: 0 },
+                stone: { assigned: 0, capacity: 0 },
+                food: { assigned: 0, capacity: 0 }
+            };
+
+            this.buildingManager.buildings.forEach(b => {
+                if (b.type === 'mill') stats.wood.capacity += (b.maxWorkers || 0);
+                if (b.type === 'goldmine') stats.gold.capacity += (b.maxWorkers || 0);
+                if (b.type === 'quarry') stats.stone.capacity += (b.maxWorkers || 0);
+                if (b.type === 'farm' || b.type === 'hunter') stats.food.capacity += (b.maxWorkers || 0);
+            });
+
+            this.villagerManager.villagers.forEach(v => {
+                if (v.assignedBuilding) {
+                    const type = v.assignedBuilding.type;
+                    if (type === 'mill') stats.wood.assigned++;
+                    if (type === 'goldmine') stats.gold.assigned++;
+                    if (type === 'quarry') stats.stone.assigned++;
+                    if (type === 'farm' || type === 'hunter') stats.food.assigned++;
+                }
+            });
+
+            html += `<h4>Workforce</h4>`;
+            html += `<p>Wood: ${stats.wood.assigned} / ${stats.wood.capacity}</p>`;
+            html += `<p>Gold: ${stats.gold.assigned} / ${stats.gold.capacity}</p>`;
+            html += `<p>Stone: ${stats.stone.assigned} / ${stats.stone.capacity}</p>`;
+            html += `<p>Food: ${stats.food.assigned} / ${stats.food.capacity}</p>`;
+
             html += `<p class="hint">Select a building to manage it.</p>`;
             this.info.innerHTML = html;
             this.actions.innerHTML = '';
