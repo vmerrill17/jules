@@ -14,7 +14,9 @@ export class CameraControls {
             w: false,
             a: false,
             s: false,
-            d: false
+            d: false,
+            q: false,
+            e: false
         };
 
         this._onKeyDown = this._onKeyDown.bind(this);
@@ -32,6 +34,8 @@ export class CameraControls {
             case 'a': this.keys.a = true; break;
             case 's': this.keys.s = true; break;
             case 'd': this.keys.d = true; break;
+            case 'q': this.keys.q = true; break;
+            case 'e': this.keys.e = true; break;
         }
     }
 
@@ -41,6 +45,8 @@ export class CameraControls {
             case 'a': this.keys.a = false; break;
             case 's': this.keys.s = false; break;
             case 'd': this.keys.d = false; break;
+            case 'q': this.keys.q = false; break;
+            case 'e': this.keys.e = false; break;
         }
     }
 
@@ -64,21 +70,13 @@ export class CameraControls {
         }
     }
 
-    update() {
+    update(delta = 0.016) {
         const direction = new THREE.Vector3();
-        const right = new THREE.Vector3();
 
         // Get camera forward direction but projected on XZ plane
         this.camera.getWorldDirection(direction);
         direction.y = 0;
         direction.normalize();
-
-        // Get camera right direction
-        right.crossVectors(direction, this.camera.up).normalize(); // Note: Camera up is usually (0,1,0)
-
-        // Correction: Cross product order matters.
-        // Forward x Up = Right (if RHS)
-        // Usually, Camera local X is right.
 
         if (this.keys.w) {
             this.camera.position.addScaledVector(direction, this.moveSpeed);
@@ -87,21 +85,37 @@ export class CameraControls {
             this.camera.position.addScaledVector(direction, -this.moveSpeed);
         }
         if (this.keys.a) {
-            // Move left
-            // We need the right vector.
-            // Three.js: Right is usually (1,0,0) in local space.
-            // Let's compute right vector from forward.
-            // const right = new THREE.Vector3().crossVectors(this.camera.up, direction).normalize();
-            // Wait, Forward x Up?
-            // Z x Y = -X.
-            // -Z (Forward) x Y = X (Right).
-            // Yes.
             const rightVec = new THREE.Vector3().crossVectors(this.camera.up, direction).normalize();
             this.camera.position.addScaledVector(rightVec, this.moveSpeed);
         }
         if (this.keys.d) {
             const rightVec = new THREE.Vector3().crossVectors(this.camera.up, direction).normalize();
             this.camera.position.addScaledVector(rightVec, -this.moveSpeed);
+        }
+
+        // Rotation
+        if (this.keys.q || this.keys.e) {
+            const rotateSpeed = 2.0 * delta;
+            const angle = this.keys.q ? rotateSpeed : -rotateSpeed;
+
+            // Find pivot point on ground
+            // Raycast from camera position along look direction to Y=0 plane
+            const lookDir = new THREE.Vector3();
+            this.camera.getWorldDirection(lookDir);
+
+            // t = -pos.y / dir.y
+            if (lookDir.y !== 0) {
+                const t = -this.camera.position.y / lookDir.y;
+                const pivot = new THREE.Vector3().copy(this.camera.position).addScaledVector(lookDir, t);
+
+                // Rotate position around pivot
+                const offset = new THREE.Vector3().subVectors(this.camera.position, pivot);
+                offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+                this.camera.position.copy(pivot).add(offset);
+
+                // Rotate camera to look at pivot (yaw)
+                this.camera.lookAt(pivot);
+            }
         }
     }
 }

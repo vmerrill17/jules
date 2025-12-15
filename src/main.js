@@ -41,9 +41,9 @@ resourceManager.gold = 100; // Starting gold
 resourceManager.updateUI();
 
 // Managers
-const enemyManager = new EnemyManager(scene, grid);
-const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
 const buildingManager = new BuildingManager(scene, grid, resourceManager);
+const enemyManager = new EnemyManager(scene, grid, buildingManager);
+const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
 
 // Controls
 const controls = new CameraControls(camera, renderer.domElement);
@@ -104,7 +104,7 @@ function animate() {
 
     enemyManager.update(delta);
 
-    controls.update();
+    controls.update(delta);
 
     // Raycast for highlight
     raycaster.setFromCamera(mouse, camera);
