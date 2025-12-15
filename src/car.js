@@ -5,17 +5,17 @@ export class Car {
         this.scene = scene;
 
         // Car Physics
-        this.speed = 0;
-        this.maxSpeed = 50;
-        this.acceleration = 30;
-        this.friction = 0.98;
-        this.steeringAngle = 0;
-        this.maxSteeringAngle = 0.04; // Radians per frame approx
-        this.heading = 0; // Radians
+        this.acceleration = 20.0;
+        this.braking = 30.0;
+        this.maxSpeed = 60.0;
+        this.turnSpeed = 2.5;
+        this.friction = 0.5; // Surface friction
+        this.driftFactor = 0.95; // 1.0 = no slide, 0.0 = ice
 
-        // Position
-        this.position = new THREE.Vector3(0, 0.5, 0); // Lowered to sit on track (y=0.1) + wheel radius
+        // Vectors
         this.velocity = new THREE.Vector3();
+        this.heading = 0; // Radians
+        this.position = new THREE.Vector3(0, 0.5, 0);
 
         this.createMesh();
     }
@@ -24,31 +24,37 @@ export class Car {
         this.mesh = new THREE.Group();
 
         // Chassis
-        const chassisGeo = new THREE.BoxGeometry(2, 1, 4);
-        const chassisMat = new THREE.MeshStandardMaterial({ color: 0xFF0000, metalness: 0.6, roughness: 0.4 });
+        const chassisGeo = new THREE.BoxGeometry(2, 0.8, 4.2);
+        const chassisMat = new THREE.MeshStandardMaterial({ color: 0xFF2200, metalness: 0.7, roughness: 0.3 });
         const chassis = new THREE.Mesh(chassisGeo, chassisMat);
-        chassis.position.y = 0.5;
+        chassis.position.y = 0.6;
         chassis.castShadow = true;
         this.mesh.add(chassis);
 
+        // Spoiler
+        const spoilerGeo = new THREE.BoxGeometry(2.2, 0.1, 0.5);
+        const spoiler = new THREE.Mesh(spoilerGeo, new THREE.MeshStandardMaterial({ color: 0x111111 }));
+        spoiler.position.set(0, 1.2, -1.8);
+        this.mesh.add(spoiler);
+
         // Cabin
-        const cabinGeo = new THREE.BoxGeometry(1.8, 0.8, 2);
-        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const cabinGeo = new THREE.BoxGeometry(1.7, 0.7, 2.2);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.1 });
         const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-        cabin.position.set(0, 1.4, -0.5);
+        cabin.position.set(0, 1.3, -0.2);
         cabin.castShadow = true;
         this.mesh.add(cabin);
 
         // Wheels
-        const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 24);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
         wheelGeo.rotateZ(Math.PI / 2);
 
         const positions = [
-            { x: -1.1, y: 0.4, z: 1.2 },
-            { x: 1.1, y: 0.4, z: 1.2 },
-            { x: -1.1, y: 0.4, z: -1.2 },
-            { x: 1.1, y: 0.4, z: -1.2 }
+            { x: -1.1, y: 0.4, z: 1.3 },
+            { x: 1.1, y: 0.4, z: 1.3 },
+            { x: -1.1, y: 0.4, z: -1.4 },
+            { x: 1.1, y: 0.4, z: -1.4 }
         ];
 
         positions.forEach(pos => {
@@ -58,75 +64,92 @@ export class Car {
             this.mesh.add(wheel);
         });
 
-        // Headlights
-        const lightGeo = new THREE.BoxGeometry(0.4, 0.2, 0.1);
-        const lightMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, emissive: 0xFFFF00 });
+        // Lights
+        const lightGeo = new THREE.BoxGeometry(0.5, 0.2, 0.1);
+        const lightMat = new THREE.MeshStandardMaterial({ color: 0xFFFFCC, emissive: 0xFFFFCC, emissiveIntensity: 2 });
         const leftLight = new THREE.Mesh(lightGeo, lightMat);
-        leftLight.position.set(-0.6, 0.6, 2.0);
+        leftLight.position.set(-0.7, 0.7, 2.1);
         this.mesh.add(leftLight);
 
         const rightLight = new THREE.Mesh(lightGeo, lightMat);
-        rightLight.position.set(0.6, 0.6, 2.0);
+        rightLight.position.set(0.7, 0.7, 2.1);
         this.mesh.add(rightLight);
 
-        // Spotlights for night driving feel
-        const spotL = new THREE.SpotLight(0xffffff, 1.0, 50, Math.PI/6, 0.5, 1);
-        spotL.position.set(-0.6, 0.6, 2.0);
-        spotL.target.position.set(-0.6, 0, 10);
+        const spotL = new THREE.SpotLight(0xffffff, 2.0, 60, Math.PI/6, 0.5, 1);
+        spotL.position.set(0, 2, 0); // High mount
+        spotL.target.position.set(0, 0, 20); // Far ahead
         this.mesh.add(spotL);
         this.mesh.add(spotL.target);
-
-        const spotR = new THREE.SpotLight(0xffffff, 1.0, 50, Math.PI/6, 0.5, 1);
-        spotR.position.set(0.6, 0.6, 2.0);
-        spotR.target.position.set(0.6, 0, 10);
-        this.mesh.add(spotR);
-        this.mesh.add(spotR.target);
 
         this.scene.add(this.mesh);
     }
 
     update(input, delta) {
-        // Acceleration
+        // Forward vector based on current rotation
+        const forward = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
+
+        // 1. Apply Engine Force
         if (input.up) {
-            this.speed += this.acceleration * delta;
+            this.velocity.addScaledVector(forward, this.acceleration * delta);
         } else if (input.down) {
-            this.speed -= this.acceleration * delta;
-        } else {
-            // Drag
-            this.speed *= this.friction;
+            this.velocity.addScaledVector(forward, -this.acceleration * delta); // Reverse/Brake
         }
 
-        // Clamp Speed
-        if (this.speed > this.maxSpeed) this.speed = this.maxSpeed;
-        if (this.speed < -this.maxSpeed / 2) this.speed = -this.maxSpeed / 2;
+        // 2. Drag / Air Resistance (Opposes velocity)
+        this.velocity.multiplyScalar(1 - (0.5 * delta));
 
-        // Steering
-        // Only steer if moving
-        if (Math.abs(this.speed) > 0.1) {
-            let turnFactor = this.speed / this.maxSpeed;
-            if (turnFactor < 0) turnFactor *= -1; // Reverse logic
+        // 3. Steering (Rotate Heading)
+        // Speed factor: steer better at medium speeds, worse at very high/low
+        const speed = this.velocity.length();
+        if (speed > 1.0) {
+            let steerAmount = this.turnSpeed * delta;
+            // Reverse steering if backing up
+            const dot = this.velocity.dot(forward);
+            if (dot < 0) steerAmount *= -1;
 
             if (input.left) {
-                this.heading += this.maxSteeringAngle * (Math.abs(this.speed)/10);
+                this.heading += steerAmount;
             } else if (input.right) {
-                this.heading -= this.maxSteeringAngle * (Math.abs(this.speed)/10);
+                this.heading -= steerAmount;
             }
         }
 
-        // Update Velocity Vector
-        this.velocity.x = Math.sin(this.heading) * this.speed;
-        this.velocity.z = Math.cos(this.heading) * this.speed;
+        // 4. Lateral Friction (Drift Physics)
+        // Split velocity into Forward and Right components relative to *new* heading
+        const right = new THREE.Vector3(Math.sin(this.heading - Math.PI/2), 0, Math.cos(this.heading - Math.PI/2));
+        const forwardNew = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
 
-        // Update Position
-        this.position.x += this.velocity.x * delta;
-        this.position.z += this.velocity.z * delta;
+        const forwardVelocity = forwardNew.multiplyScalar(this.velocity.dot(forwardNew));
+        const rightVelocity = right.multiplyScalar(this.velocity.dot(right));
+
+        // Apply heavy friction to sideways velocity, but not instant (allows slide)
+        rightVelocity.multiplyScalar(0.9); // Slide factor
+
+        // Recombine
+        this.velocity.copy(forwardVelocity).add(rightVelocity);
+
+        // 5. Update Position
+        this.position.addScaledVector(this.velocity, delta);
 
         // Update Mesh
         this.mesh.position.copy(this.position);
         this.mesh.rotation.y = this.heading;
+
+        // Spotlights follow mesh rotation automatically via hierarchy
+        // But targets might need updates if they are children?
+        // ThreeJS object hierarchy handles rotation of children. Spotlight target must be added to scene or child.
+        // We added target to mesh, so it rotates.
     }
 
     getSpeedKmh() {
-        return Math.abs(this.speed * 3.6).toFixed(0);
+        return (this.velocity.length() * 3.6).toFixed(0);
+    }
+
+    reset(position) {
+        this.position.copy(position);
+        this.velocity.set(0,0,0);
+        this.heading = 0; // Or match track tangent
+        this.mesh.position.copy(this.position);
+        this.mesh.rotation.y = this.heading;
     }
 }
