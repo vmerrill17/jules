@@ -269,17 +269,6 @@ export class BuildingManager {
             }
         }
 
-        // Handle passive income from mills and goldmines
-        const mills = this.buildings.filter(b => b.type === 'mill').length;
-        if (mills > 0) {
-            this.resourceManager.addResource('wood', mills * delta);
-        }
-
-        const goldmines = this.buildings.filter(b => b.type === 'goldmine').length;
-        if (goldmines > 0) {
-            this.resourceManager.addResource('gold', goldmines * delta);
-        }
-
         // Traps logic
         // Traps don't fire, they wait for collision.
         // We could check collisions here if we have enemies list.

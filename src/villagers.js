@@ -127,11 +127,11 @@ export class VillagerManager {
             if (villager.timer > 5.0) {
                 // Generate Resource based on building type
                 const type = villager.assignedBuilding.type;
-                if (type === 'mill') this.resourceManager.addResource('wood', 5);
-                if (type === 'goldmine') this.resourceManager.addResource('gold', 5);
-                if (type === 'quarry') this.resourceManager.addResource('stone', 5);
-                if (type === 'farm') this.resourceManager.addResource('food', 5);
-                if (type === 'hunter') this.resourceManager.addResource('food', 5);
+                if (type === 'mill') this.resourceManager.addResource('wood', 10);
+                if (type === 'goldmine') this.resourceManager.addResource('gold', 10);
+                if (type === 'quarry') this.resourceManager.addResource('stone', 10);
+                if (type === 'farm') this.resourceManager.addResource('food', 10);
+                if (type === 'hunter') this.resourceManager.addResource('food', 10);
 
                 // Return to Town Center
                 villager.target = new THREE.Vector3(0, 0.25, 0);

@@ -62,6 +62,7 @@ export class SelectionManager {
 
         const b = this.selectedBuilding;
         const assigned = this.villagerManager.getAssignedCount(b);
+        const idleCount = this.villagerManager.villagers.filter(v => v.state === 'idle' || v.state === 'wandering').length;
 
         let html = `<h3>${b.type.toUpperCase()}</h3>`;
         html += `<p>HP: ${b.hp} / ${b.maxHp}</p>`;
@@ -69,6 +70,7 @@ export class SelectionManager {
         // Worker Assignment
         if (['mill', 'goldmine', 'quarry', 'farm', 'hunter'].includes(b.type)) {
             html += `<p>Workers: ${assigned}</p>`;
+            html += `<p class="small">Idle Villagers: ${idleCount}</p>`;
             html += `<button id="btn-assign">Assign Villager</button>`;
             html += `<button id="btn-unassign">Unassign Villager</button>`;
         }
