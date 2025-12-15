@@ -5,9 +5,11 @@ import { Grid } from './grid.js';
 import { BuildingManager } from './buildings.js';
 import { EnemyManager } from './enemies.js';
 import { VillagerManager } from './villagers.js';
+import { SoldierManager } from './soldiers.js';
 import { CameraControls } from './controls.js';
 import { ResourceManager } from './resources.js';
 import { ParticleSystem } from './particles.js';
+import { SelectionManager } from './selection.js';
 
 console.log('Game starting...');
 
@@ -49,7 +51,11 @@ const particleSystem = new ParticleSystem(scene);
 const buildingManager = new BuildingManager(scene, grid, resourceManager, particleSystem);
 const enemyManager = new EnemyManager(scene, grid, buildingManager, particleSystem);
 const villagerManager = new VillagerManager(scene, grid, resourceManager, buildingManager);
+const soldierManager = new SoldierManager(scene, grid, enemyManager);
 const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
+
+// Selection
+const selectionManager = new SelectionManager(scene, camera, grid, buildingManager, villagerManager, soldierManager);
 
 // Controls
 const controls = new CameraControls(camera, renderer.domElement);
@@ -89,6 +95,10 @@ document.getElementById('btn-mill').addEventListener('click', () => selectedBuil
 document.getElementById('btn-wall').addEventListener('click', () => selectedBuilding = 'wall');
 document.getElementById('btn-tower').addEventListener('click', () => selectedBuilding = 'tower');
 document.getElementById('btn-goldmine').addEventListener('click', () => selectedBuilding = 'goldmine');
+document.getElementById('btn-quarry').addEventListener('click', () => selectedBuilding = 'quarry');
+document.getElementById('btn-farm').addEventListener('click', () => selectedBuilding = 'farm');
+document.getElementById('btn-hunter').addEventListener('click', () => selectedBuilding = 'hunter');
+document.getElementById('btn-barracks').addEventListener('click', () => selectedBuilding = 'barracks');
 document.getElementById('btn-trap').addEventListener('click', () => selectedBuilding = 'trap');
 
 // Window resize
@@ -110,6 +120,7 @@ function animate() {
 
     enemyManager.update(delta);
     villagerManager.update(delta);
+    soldierManager.update(delta);
     particleSystem.update(delta);
 
     controls.update(delta);

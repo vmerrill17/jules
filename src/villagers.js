@@ -36,45 +36,43 @@ export class VillagerManager {
         this.populationCount = 0;
     }
 
-    update(delta) {
-        // Check population count and spawn if needed
-        const currentPop = Math.floor(this.resourceManager.population); // Should logic drive this or visual?
-        // Let's say we visualize up to maxVillagers based on current Pop.
-        // Actually, population grows. Let's just try to match `villagers.length` to `resourceManager.population`.
-        // Note: resourceManager.population is currently 0 and grows with houses?
-        // Wait, houses increase maxPopulation. Does population grow automatically?
-        // In original plan: "House: +2 Population". This usually means Max Pop.
-        // Where is current pop? `ResourceManager` has `population` and `maxPopulation`.
-        // `BuildingManager` increases `maxPopulation`.
-        // Who increases `population`?
-        // Currently nothing increases `population` (actual people).
-        // Let's assume population = maxPopulation for now, or we need a way to grow it.
-        // Or simpler: We spawn 1 villager per House placed?
-        // Let's make "Population" mean "Current Villagers".
-        // Houses increase CAP. Town Center spawns them?
-        // Let's just spawn villagers up to the cap slowly?
-        // Or just make it so Houses spawn villagers immediately.
-        // `BuildingManager` increases `maxPopulation`. Let's treat that as "Space".
-        // Let's automatically spawn villagers if population < maxPopulation.
+    getAssignedCount(building) {
+        return this.villagers.filter(v => v.assignedBuilding === building).length;
+    }
 
+    assignVillagerTo(building) {
+        // Find idle villager
+        const villager = this.villagers.find(v => v.state === 'idle' || v.state === 'wandering');
+        if (villager) {
+            villager.assignedBuilding = building;
+            villager.state = 'idle'; // Reset state to trigger logic
+        }
+    }
+
+    unassignVillagerFrom(building) {
+        const villager = this.villagers.find(v => v.assignedBuilding === building);
+        if (villager) {
+            villager.assignedBuilding = null;
+            villager.state = 'idle';
+        }
+    }
+
+    update(delta) {
         if (this.populationCount < this.resourceManager.maxPopulation) {
-             if (Math.random() < 0.05) { // Random spawn chance per frame
+             if (Math.random() < 0.05) {
                  this.spawnVillager();
              }
         }
 
-        // Update Villagers
         for (const villager of this.villagers) {
             this.updateVillager(villager, delta);
 
-            // Update Mesh
             this.dummy.position.copy(villager.worldPos);
             this.dummy.updateMatrix();
             this.mesh.setMatrixAt(villager.instanceId, this.dummy.matrix);
         }
         this.mesh.instanceMatrix.needsUpdate = true;
 
-        // Update Resource Manager count for UI
         this.resourceManager.population = this.populationCount;
         this.resourceManager.updateUI();
     }
@@ -83,14 +81,15 @@ export class VillagerManager {
         if (this.freeIndices.length === 0) return;
 
         const instanceId = this.freeIndices.pop();
-        const startPos = new THREE.Vector3(0, 0.25, 0); // Town Center roughly
+        const startPos = new THREE.Vector3(0, 0.25, 0);
 
         this.villagers.push({
             instanceId: instanceId,
             worldPos: startPos,
             state: 'idle',
             target: null,
-            timer: 0
+            timer: 0,
+            assignedBuilding: null
         });
 
         this.populationCount++;
@@ -100,13 +99,10 @@ export class VillagerManager {
         const speed = 1.5;
 
         if (villager.state === 'idle') {
-            // Find a job
-            // Look for Mills or GoldMines
-            const producers = this.buildingManager.buildings.filter(b => b.type === 'mill' || b.type === 'goldmine');
-
-            if (producers.length > 0) {
-                const target = producers[Math.floor(Math.random() * producers.length)];
-                villager.target = this.grid.gridToWorld(target.x, target.y);
+            if (villager.assignedBuilding) {
+                // Go to assigned building
+                const b = villager.assignedBuilding;
+                villager.target = this.grid.gridToWorld(b.x, b.y);
                 villager.state = 'moving_to_work';
             } else {
                 // Wander
@@ -118,22 +114,36 @@ export class VillagerManager {
                 }
             }
         } else if (villager.state === 'moving_to_work') {
+            if (!villager.assignedBuilding) { villager.state = 'idle'; return; }
+
             this.moveTo(villager, villager.target, speed, delta, () => {
                 villager.state = 'working';
                 villager.timer = 0;
             });
         } else if (villager.state === 'working') {
+            if (!villager.assignedBuilding) { villager.state = 'idle'; return; }
+
             villager.timer += delta;
             if (villager.timer > 5.0) {
+                // Generate Resource based on building type
+                const type = villager.assignedBuilding.type;
+                if (type === 'mill') this.resourceManager.addResource('wood', 5);
+                if (type === 'goldmine') this.resourceManager.addResource('gold', 5);
+                if (type === 'quarry') this.resourceManager.addResource('stone', 5);
+                if (type === 'farm') this.resourceManager.addResource('food', 5);
+                if (type === 'hunter') this.resourceManager.addResource('food', 5);
+
                 // Return to Town Center
                 villager.target = new THREE.Vector3(0, 0.25, 0);
                 villager.state = 'returning';
             }
         } else if (villager.state === 'returning') {
             this.moveTo(villager, villager.target, speed, delta, () => {
-                villager.state = 'idle';
+                villager.state = 'idle'; // Restart loop
             });
         } else if (villager.state === 'wandering') {
+            if (villager.assignedBuilding) { villager.state = 'idle'; return; } // Interrupt wander
+
             this.moveTo(villager, villager.target, speed * 0.5, delta, () => {
                 villager.state = 'idle';
             });

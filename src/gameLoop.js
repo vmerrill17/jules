@@ -65,6 +65,7 @@ export class GameLoop {
 
     startDay() {
         this.phase = 'day';
+        this.dayCount++;
         this.timer = 120;
         this.scene.background = new THREE.Color(0x87CEEB); // Day sky
 

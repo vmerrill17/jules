@@ -33,6 +33,18 @@ export class BuildingManager {
         this.goldMineGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         this.goldMineMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); // Gold
 
+        this.quarryGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        this.quarryMaterial = new THREE.MeshStandardMaterial({ color: 0xA9A9A9 }); // Dark Grey
+
+        this.farmGeometry = new THREE.BoxGeometry(0.8, 0.2, 0.8);
+        this.farmMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0 }); // Light Yellow
+
+        this.hunterGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        this.hunterMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 }); // Forest Green
+
+        this.barracksGeometry = new THREE.BoxGeometry(1.2, 1.0, 1.2);
+        this.barracksMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 }); // Dark Red
+
         this.trapGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.8);
         this.trapMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 }); // Dark Grey Spikes
 
@@ -64,6 +76,10 @@ export class BuildingManager {
             'wall': { wood: 5, gold: 0 },
             'tower': { wood: 20, gold: 10 },
             'goldmine': { wood: 50, gold: 0 },
+            'quarry': { wood: 50, gold: 0 },
+            'farm': { wood: 30, gold: 0 },
+            'hunter': { wood: 20, gold: 0 },
+            'barracks': { wood: 100, gold: 0, stone: 50 },
             'trap': { wood: 10, gold: 0 },
             'towncenter': { wood: 0, gold: 0 } // Free, initial placement
         };
@@ -75,6 +91,10 @@ export class BuildingManager {
             'wall': { hp: 100 },
             'tower': { hp: 80, range: 5, damage: 10, fireRate: 1.0 },
             'goldmine': { hp: 50 },
+            'quarry': { hp: 50 },
+            'farm': { hp: 30 },
+            'hunter': { hp: 40 },
+            'barracks': { hp: 100 },
             'trap': { hp: 10, damage: 5 }, // Traps break easily? or indestructible? Let's say low HP but enemies walk over them.
             'towncenter': { hp: 500 }
         };
@@ -141,6 +161,18 @@ export class BuildingManager {
             } else if (type === 'goldmine') {
                 mesh = new THREE.Mesh(this.goldMineGeometry, this.goldMineMaterial);
                 mesh.position.set(pos.x, 0.4, pos.z);
+            } else if (type === 'quarry') {
+                mesh = new THREE.Mesh(this.quarryGeometry, this.quarryMaterial);
+                mesh.position.set(pos.x, 0.4, pos.z);
+            } else if (type === 'farm') {
+                mesh = new THREE.Mesh(this.farmGeometry, this.farmMaterial);
+                mesh.position.set(pos.x, 0.1, pos.z);
+            } else if (type === 'hunter') {
+                mesh = new THREE.Mesh(this.hunterGeometry, this.hunterMaterial);
+                mesh.position.set(pos.x, 0.4, pos.z);
+            } else if (type === 'barracks') {
+                mesh = new THREE.Mesh(this.barracksGeometry, this.barracksMaterial);
+                mesh.position.set(pos.x, 0.5, pos.z);
             } else if (type === 'trap') {
                 mesh = new THREE.Mesh(this.trapGeometry, this.trapMaterial);
                 mesh.position.set(pos.x, 0.05, pos.z); // Low on ground
