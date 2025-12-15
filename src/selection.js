@@ -20,6 +20,8 @@ export class SelectionManager {
         this.info = document.getElementById('selection-info');
         this.actions = document.getElementById('selection-actions');
 
+        this.updatePanel();
+
         window.addEventListener('mousedown', (event) => this.onMouseDown(event));
     }
 
@@ -52,35 +54,55 @@ export class SelectionManager {
 
     selectBuilding(building) {
         this.selectedBuilding = building;
-        this.panel.style.display = 'block';
-
         this.updatePanel();
     }
 
     updatePanel() {
-        if (!this.selectedBuilding) return;
+        // Shared Stats
+        const idleCount = this.villagerManager.villagers.filter(v => v.state === 'idle' || v.state === 'wandering').length;
+        const totalPop = this.villagerManager.populationCount;
+        const maxPop = this.villagerManager.resourceManager.maxPopulation;
+
+        if (!this.selectedBuilding) {
+            // Global Info
+            let html = `<h3>KINGDOM OVERVIEW</h3>`;
+            html += `<p>Population: ${totalPop} / ${maxPop}</p>`;
+            html += `<p>Idle Villagers: ${idleCount}</p>`;
+            html += `<p>Soldiers: ${this.soldierManager ? this.soldierManager.soldiers.length : 0}</p>`;
+            html += `<p class="hint">Select a building to manage it.</p>`;
+            this.info.innerHTML = html;
+            this.actions.innerHTML = '';
+            return;
+        }
 
         const b = this.selectedBuilding;
         const assigned = this.villagerManager.getAssignedCount(b);
-        const idleCount = this.villagerManager.villagers.filter(v => v.state === 'idle' || v.state === 'wandering').length;
 
         let html = `<h3>${b.type.toUpperCase()}</h3>`;
         html += `<p>HP: ${b.hp} / ${b.maxHp}</p>`;
 
+        let actionsHtml = '';
+
         // Worker Assignment
         if (['mill', 'goldmine', 'quarry', 'farm', 'hunter'].includes(b.type)) {
-            html += `<p>Workers: ${assigned}</p>`;
+            const max = b.maxWorkers || 5;
+            html += `<p>Workers: ${assigned} / ${max}</p>`;
             html += `<p class="small">Idle Villagers: ${idleCount}</p>`;
-            html += `<button id="btn-assign">Assign Villager</button>`;
-            html += `<button id="btn-unassign">Unassign Villager</button>`;
+
+            const assignDisabled = (assigned >= max || idleCount === 0) ? 'disabled' : '';
+            const unassignDisabled = (assigned === 0) ? 'disabled' : '';
+
+            actionsHtml += `<button id="btn-assign" ${assignDisabled}>Assign Villager</button>`;
+            actionsHtml += `<button id="btn-unassign" ${unassignDisabled}>Unassign Villager</button>`;
         }
 
         // Barracks Training
         if (b.type === 'barracks') {
-            html += `<button id="btn-train-soldier">Train Soldier (50F, 20G)</button>`;
+            actionsHtml += `<button id="btn-train-soldier">Train Soldier (50F, 20G)</button>`;
         }
 
         this.info.innerHTML = html;
+        this.actions.innerHTML = actionsHtml;
 
         // Bind buttons
         const btnAssign = document.getElementById('btn-assign');
@@ -95,8 +117,14 @@ export class SelectionManager {
 
     assignVillager() {
         if (this.selectedBuilding) {
-            this.villagerManager.assignVillagerTo(this.selectedBuilding);
-            this.updatePanel();
+            // Check limit again
+            const b = this.selectedBuilding;
+            const assigned = this.villagerManager.getAssignedCount(b);
+            const max = b.maxWorkers || 5;
+            if (assigned < max) {
+                this.villagerManager.assignVillagerTo(b);
+                this.updatePanel();
+            }
         }
     }
 
@@ -115,6 +143,6 @@ export class SelectionManager {
 
     deselect() {
         this.selectedBuilding = null;
-        this.panel.style.display = 'none';
+        this.updatePanel();
     }
 }

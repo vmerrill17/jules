@@ -50,3 +50,40 @@ button {
 button:hover {
     background-color: #555;
 }
+
+#selection-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 250px;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    box-sizing: border-box;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+}
+
+#selection-info {
+    margin-bottom: 20px;
+}
+
+#selection-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.small {
+    font-size: 0.8em;
+    color: #ccc;
+}
+
+.hint {
+    font-style: italic;
+    color: #aaa;
+    margin-top: 20px;
+}

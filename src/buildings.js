@@ -87,13 +87,13 @@ export class BuildingManager {
         // Stats
         this.stats = {
             'house': { hp: 50 },
-            'mill': { hp: 50 },
+            'mill': { hp: 50, maxWorkers: 5 },
             'wall': { hp: 100 },
             'tower': { hp: 80, range: 5, damage: 10, fireRate: 1.0 },
-            'goldmine': { hp: 50 },
-            'quarry': { hp: 50 },
-            'farm': { hp: 30 },
-            'hunter': { hp: 40 },
+            'goldmine': { hp: 50, maxWorkers: 5 },
+            'quarry': { hp: 50, maxWorkers: 5 },
+            'farm': { hp: 30, maxWorkers: 5 },
+            'hunter': { hp: 40, maxWorkers: 5 },
             'barracks': { hp: 100 },
             'trap': { hp: 10, damage: 5 }, // Traps break easily? or indestructible? Let's say low HP but enemies walk over them.
             'towncenter': { hp: 500 }
@@ -189,6 +189,7 @@ export class BuildingManager {
                     mesh: mesh,
                     hp: this.stats[type].hp,
                     maxHp: this.stats[type].hp,
+                    maxWorkers: this.stats[type].maxWorkers || 0,
                     // Tower specifics
                     range: this.stats[type].range,
                     damage: this.stats[type].damage,
