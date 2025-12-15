@@ -9,6 +9,8 @@ export class EnemyManager {
         this.buildingManager = buildingManager;
         this.particleSystem = particleSystem;
         this.enemies = [];
+        this.projectiles = []; // Enemy projectiles
+
         this.pathfinding = new Pathfinding(grid);
 
         // Initial Target: Center of grid
@@ -16,14 +18,16 @@ export class EnemyManager {
         this.pathfinding.setTarget(this.target.x, this.target.y);
 
         this.spawnTimer = 0;
-        this.spawnInterval = 1.0; // Seconds between spawns
+        this.spawnInterval = 1.0;
         this.isNight = false;
 
         // Enemy Types Configuration
         this.types = {
             standard: { color: 0xFF0000, size: 0.4, speed: 2.0, hp: 20 },
             fast: { color: 0xFFFF00, size: 0.3, speed: 4.0, hp: 10 },
-            tank: { color: 0x000000, size: 0.6, speed: 1.0, hp: 50 }
+            tank: { color: 0x000000, size: 0.6, speed: 1.0, hp: 50 },
+            ranged: { color: 0x800080, size: 0.4, speed: 1.5, hp: 15, range: 4, damage: 5, reload: 2.0 }, // Purple
+            siege: { color: 0x8B4513, size: 0.7, speed: 0.8, hp: 80, bonusVsWalls: 3.0 } // Brown
         };
 
         this.meshes = {};
@@ -35,10 +39,24 @@ export class EnemyManager {
         this.dummy.position.set(0, -100, 0);
         this.dummy.updateMatrix();
 
+        // Projectile setup
+        this.projectileGeometry = new THREE.SphereGeometry(0.1, 4, 4);
+        this.projectileMaterial = new THREE.MeshBasicMaterial({ color: 0x800080 });
+
         for (const [key, config] of Object.entries(this.types)) {
-            const geometry = new THREE.SphereGeometry(config.size, 8, 8);
-            const material = new THREE.MeshStandardMaterial({ color: config.color });
+            let geometry;
+            if (key === 'ranged') {
+                geometry = new THREE.TetrahedronGeometry(config.size);
+            } else if (key === 'siege') {
+                geometry = new THREE.BoxGeometry(config.size, config.size, config.size);
+            } else {
+                geometry = new THREE.SphereGeometry(config.size, 8, 8);
+            }
+
+            const material = new THREE.MeshStandardMaterial({ color: config.color, roughness: 0.5 });
             const mesh = new THREE.InstancedMesh(geometry, material, this.maxEnemiesPerType);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
             mesh.frustumCulled = false;
             this.scene.add(mesh);
             this.meshes[key] = mesh;
@@ -60,37 +78,31 @@ export class EnemyManager {
     setNight(isNight, dayCount = 1) {
         this.isNight = isNight;
         this.dayCount = dayCount;
-        // Adjust spawn interval based on difficulty (dayCount)
-        // Day 1: 1.0s, Day 10: 0.1s?
         this.spawnInterval = Math.max(0.2, 1.0 - (this.dayCount * 0.1));
 
-        // Recalculate flow field when night starts in case walls changed
         if (isNight) {
              this.pathfinding.calculateFlowField();
         }
     }
 
     spawnEnemy() {
-        // Pick type based on difficulty
-        // Day 1: Mostly Standard
-        // Day 3+: Add Fast
-        // Day 5+: Add Tanks
-
         let typeKey = 'standard';
         const rand = Math.random();
 
+        // Progression Logic
         if (this.dayCount >= 5) {
-            // Mix of all
-            if (rand < 0.2) typeKey = 'tank';
-            else if (rand < 0.5) typeKey = 'fast';
+            if (rand < 0.1) typeKey = 'siege';
+            else if (rand < 0.25) typeKey = 'tank';
+            else if (rand < 0.4) typeKey = 'ranged';
+            else if (rand < 0.6) typeKey = 'fast';
             else typeKey = 'standard';
         } else if (this.dayCount >= 3) {
-            // Standard + Fast
-            if (rand < 0.4) typeKey = 'fast';
+            if (rand < 0.1) typeKey = 'tank';
+            else if (rand < 0.25) typeKey = 'ranged';
+            else if (rand < 0.5) typeKey = 'fast';
             else typeKey = 'standard';
         } else {
-            // Mostly Standard
-            if (rand < 0.1) typeKey = 'fast'; // Rare fast one
+            if (rand < 0.1) typeKey = 'fast';
             else typeKey = 'standard';
         }
 
@@ -106,11 +118,11 @@ export class EnemyManager {
             y = Math.random() < 0.5 ? 0 : this.grid.height - 1;
         }
 
-        if (this.grid.getTile(x, y) !== 0) return; // Only spawn on grass
+        if (this.grid.getTile(x, y) !== 0) return;
 
         const pos = this.grid.gridToWorld(x, y);
 
-        if (this.freeIndices[typeKey].length === 0) return; // Full
+        if (this.freeIndices[typeKey].length === 0) return;
 
         const instanceId = this.freeIndices[typeKey].pop();
 
@@ -128,7 +140,12 @@ export class EnemyManager {
             y: y,
             worldPos: new THREE.Vector3(pos.x, 0.4, pos.z),
             speed: config.speed,
-            hp: config.hp
+            hp: config.hp,
+            // Ranged specific
+            cooldown: 0,
+            range: config.range || 0,
+            damage: config.damage || 5,
+            bonusVsWalls: config.bonusVsWalls || 1.0
         });
     }
 
@@ -141,16 +158,16 @@ export class EnemyManager {
             }
         }
 
-        // Move enemies
-        let needsUpdate = false;
+        this.updateProjectiles(delta);
 
+        // Move enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
 
             if (enemy.hp <= 0) {
                 // Kill enemy
                 if (this.particleSystem) {
-                    this.particleSystem.emit(enemy.worldPos, new THREE.Color(0xFF0000));
+                    this.particleSystem.emit(enemy.worldPos, new THREE.Color(this.types[enemy.type].color));
                 }
 
                 this.dummy.position.set(0, -100, 0);
@@ -163,49 +180,121 @@ export class EnemyManager {
                 continue;
             }
 
-            // Get current grid pos
-            const gridPos = this.grid.worldToGrid(enemy.worldPos.x, enemy.worldPos.z);
-
-            // Get flow direction
-            const flow = this.pathfinding.getFlow(gridPos.x, gridPos.y);
-
-            // Check current tile for building to attack
-            // But wait, flow field directs them. If they are blocked by a wall, flow field might point INTO the wall
-            // if we treated walls as walkable in distance map but high cost?
-            // Or if we treated them as obstacles, flow field would be null if completely blocked.
-            // But if path is valid, they just move.
-
-            // Collision detection with buildings
-            // For simplicity: Check if next tile is a building.
-            // Or check if current tile is a building (which shouldn't happen if they are on top of it).
-
-            // Better: If they are close to a building, they stop and attack.
-            // Let's check the tile they are standing on OR the one they are trying to move to.
-
-            if (flow) {
-                const targetX = gridPos.x + flow.x;
-                const targetY = gridPos.y + flow.y;
-
-                // Check if target tile has a building
-                const tileType = this.grid.getTile(targetX, targetY);
-                if (tileType === 1) { // 1 = Building/Wall
-                    // Attack!
-                    const building = this.buildingManager.getBuildingAt(targetX, targetY);
-                    if (building) {
-                        this.attackBuilding(enemy, building, delta);
-                    } else {
-                        // Weird state: tile says building but manager says no. Just move.
-                         this.moveEnemy(enemy, flow, delta);
-                    }
-                } else {
-                    this.moveEnemy(enemy, flow, delta);
-                }
+            // Logic
+            if (enemy.type === 'ranged') {
+                this.updateRanged(enemy, delta);
+            } else {
+                this.updateMelee(enemy, delta);
             }
 
             // Re-sync logical x,y
             const newGridPos = this.grid.worldToGrid(enemy.worldPos.x, enemy.worldPos.z);
             enemy.x = newGridPos.x;
             enemy.y = newGridPos.y;
+        }
+    }
+
+    updateMelee(enemy, delta) {
+        const gridPos = this.grid.worldToGrid(enemy.worldPos.x, enemy.worldPos.z);
+        const flow = this.pathfinding.getFlow(gridPos.x, gridPos.y);
+
+        if (flow) {
+            const targetX = gridPos.x + flow.x;
+            const targetY = gridPos.y + flow.y;
+
+            const tileType = this.grid.getTile(targetX, targetY);
+            if (tileType === 1) { // Building
+                const building = this.buildingManager.getBuildingAt(targetX, targetY);
+                if (building) {
+                    let dmg = 10 * delta;
+                    if (enemy.type === 'siege' && (building.type === 'wall' || building.type === 'tower')) {
+                        dmg *= enemy.bonusVsWalls;
+                    }
+                    this.attackBuilding(enemy, building, dmg);
+                } else {
+                     this.moveEnemy(enemy, flow, delta);
+                }
+            } else {
+                this.moveEnemy(enemy, flow, delta);
+            }
+        }
+    }
+
+    updateRanged(enemy, delta) {
+        // Find nearest building
+        // Optimization: Just check buildings list? Too slow (hundreds of buildings).
+        // Check grid within range?
+        // Simple: Just check if we are within range of ANY building towards the center?
+        // Or check nearest building.
+        // Let's iterate buildings... optimize later if needed.
+
+        let target = null;
+        let minDist = enemy.range + 0.1;
+
+        // Scan limited radius?
+        // For now, simple distance check to nearest building.
+        // If we want them to siege, they should follow flow field until they see a building.
+
+        // Re-use Flow Field logic: If I follow flow field for 'Range' steps, do I hit a building?
+        // That's complex.
+
+        // Fallback: Behave like melee until within range of 'something'.
+        // Let's just check distance to the Town Center first.
+        const centerPos = this.grid.gridToWorld(Math.floor(this.grid.width/2), Math.floor(this.grid.height/2));
+        const distToCenter = enemy.worldPos.distanceTo(centerPos);
+
+        // If close to center, attack center
+        if (distToCenter <= enemy.range + 1) { // +1 for building size
+             // Attack Center
+             const center = this.buildingManager.getBuildingAt(Math.floor(this.grid.width/2), Math.floor(this.grid.height/2));
+             if (center) target = center;
+        }
+
+        // Also check if any wall/tower is close
+        // We can do a quick check of surrounding tiles in radius
+        if (!target) {
+            const r = Math.ceil(enemy.range);
+            const gx = enemy.x;
+            const gy = enemy.y;
+
+            for (let dx = -r; dx <= r; dx++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    const tx = gx + dx;
+                    const ty = gy + dy;
+                    if (this.grid.isValid(tx, ty) && this.grid.getTile(tx, ty) === 1) {
+                         // Found a building
+                         const b = this.buildingManager.getBuildingAt(tx, ty);
+                         if (b) {
+                             const dist = enemy.worldPos.distanceTo(b.mesh ? b.mesh.position : new THREE.Vector3(0,0,0)); // Instanced walls don't have mesh.position
+                             // Need robust position getting
+                             let bPos;
+                             if (b.isInstanced) {
+                                 bPos = this.grid.gridToWorld(b.x, b.y);
+                             } else {
+                                 bPos = b.mesh.position;
+                             }
+
+                             if (dist <= enemy.range) {
+                                 target = b;
+                                 break;
+                             }
+                         }
+                    }
+                }
+                if (target) break;
+            }
+        }
+
+        if (target) {
+            // Attack
+            enemy.cooldown -= delta;
+            if (enemy.cooldown <= 0) {
+                this.spawnProjectile(enemy, target);
+                enemy.cooldown = 2.0; // Slow fire
+            }
+        } else {
+            // Move
+            this.updateMelee(enemy, delta);
         }
     }
 
@@ -223,15 +312,63 @@ export class EnemyManager {
         // Update InstancedMesh
         const dummy = new THREE.Object3D();
         dummy.position.copy(enemy.worldPos);
+
+        // Rotate to face direction
+        // atan2(x, z)
+        const angle = Math.atan2(dir.x, dir.z);
+        dummy.rotation.y = angle;
+
         dummy.updateMatrix();
         this.meshes[enemy.type].setMatrixAt(enemy.instanceId, dummy.matrix);
         this.meshes[enemy.type].instanceMatrix.needsUpdate = true;
     }
 
-    attackBuilding(enemy, building, delta) {
-        // Simple attack logic
-        // Damage building
-        // Visual feedback?
-        this.buildingManager.damageBuilding(building, 10 * delta); // 10 DPS
+    attackBuilding(enemy, building, damage) {
+        this.buildingManager.damageBuilding(building, damage);
+    }
+
+    spawnProjectile(enemy, targetBuilding) {
+        let targetPos;
+        if (targetBuilding.isInstanced) {
+            const p = this.grid.gridToWorld(targetBuilding.x, targetBuilding.y);
+            targetPos = new THREE.Vector3(p.x, 0.5, p.z);
+        } else {
+            targetPos = targetBuilding.mesh.position.clone();
+        }
+
+        const mesh = new THREE.Mesh(this.projectileGeometry, this.projectileMaterial);
+        mesh.position.copy(enemy.worldPos);
+        mesh.position.y += 0.5;
+        this.scene.add(mesh);
+
+        this.projectiles.push({
+            mesh: mesh,
+            target: targetPos,
+            damage: enemy.damage,
+            targetBuilding: targetBuilding
+        });
+    }
+
+    updateProjectiles(delta) {
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            const dir = new THREE.Vector3().subVectors(p.target, p.mesh.position).normalize();
+            const dist = p.mesh.position.distanceTo(p.target);
+
+            if (dist < 0.5) { // Hit
+                this.scene.remove(p.mesh);
+                this.projectiles.splice(i, 1);
+
+                // Damage
+                if (this.buildingManager.buildings.includes(p.targetBuilding)) {
+                    this.buildingManager.damageBuilding(p.targetBuilding, p.damage);
+                    if (this.particleSystem) {
+                         this.particleSystem.emit(p.mesh.position, new THREE.Color(0xFFA500));
+                    }
+                }
+            } else {
+                p.mesh.position.addScaledVector(dir, 8 * delta);
+            }
+        }
     }
 }

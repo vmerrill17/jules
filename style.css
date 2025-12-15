@@ -31,10 +31,12 @@
 #controls {
     position: absolute;
     bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 20px;
+    right: 270px; /* Leave space for sidebar */
     display: flex;
+    flex-wrap: wrap; /* Wrap buttons if screen is small */
     gap: 10px;
+    justify-content: center;
 }
 
 button {

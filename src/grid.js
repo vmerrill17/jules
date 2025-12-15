@@ -14,13 +14,16 @@ export class Grid {
 
     createVisuals() {
         const geometry = new THREE.PlaneGeometry(this.width, this.height);
-        const material = new THREE.MeshStandardMaterial({ color: 0x228B22 }); // Green grass
+        const material = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.8 }); // Green grass
         this.plane = new THREE.Mesh(geometry, material);
         this.plane.rotation.x = -Math.PI / 2;
+        this.plane.receiveShadow = true;
         this.scene.add(this.plane);
 
         // Grid helper
-        const gridHelper = new THREE.GridHelper(this.width, this.width);
+        const gridHelper = new THREE.GridHelper(this.width, this.width, 0x000000, 0x000000);
+        gridHelper.material.opacity = 0.2;
+        gridHelper.material.transparent = true;
         this.scene.add(gridHelper);
     }
 

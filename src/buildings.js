@@ -1,5 +1,6 @@
 // Logic for placing towers/houses
 import * as THREE from 'three';
+import { createHouseGeometry } from './utils.js';
 
 export class BuildingManager {
     constructor(scene, grid, resourceManager, particleSystem) {
@@ -16,42 +17,44 @@ export class BuildingManager {
 
         // Geometries and Materials
         this.wallGeometry = new THREE.BoxGeometry(1, 1, 1);
-        this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 }); // Grey
+        this.wallMaterial = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.7 }); // Grey
 
-        this.houseGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        this.houseMaterial = new THREE.MeshStandardMaterial({ color: 0x00FF00 }); // Green
+        this.houseGeometry = createHouseGeometry();
+        this.houseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 }); // Brown wood
 
         this.millGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        this.millMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Brown
+        this.millMaterial = new THREE.MeshStandardMaterial({ color: 0xA0522D }); // Sienna
 
-        this.towerGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1.5);
-        this.towerMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000 }); // Red
+        this.towerGeometry = new THREE.CylinderGeometry(0.3, 0.4, 1.5);
+        this.towerMaterial = new THREE.MeshStandardMaterial({ color: 0x696969 }); // Dim Gray
 
         this.townCenterGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
-        this.townCenterMaterial = new THREE.MeshStandardMaterial({ color: 0x0000FF }); // Blue
+        this.townCenterMaterial = new THREE.MeshStandardMaterial({ color: 0x4169E1 }); // Royal Blue
 
-        this.goldMineGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        this.goldMineMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); // Gold
+        this.goldMineGeometry = new THREE.DodecahedronGeometry(0.5);
+        this.goldMineMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.8, roughness: 0.2 }); // Gold
 
-        this.quarryGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        this.quarryMaterial = new THREE.MeshStandardMaterial({ color: 0xA9A9A9 }); // Dark Grey
+        this.quarryGeometry = new THREE.DodecahedronGeometry(0.5);
+        this.quarryMaterial = new THREE.MeshStandardMaterial({ color: 0x708090 }); // Slate Grey
 
-        this.farmGeometry = new THREE.BoxGeometry(0.8, 0.2, 0.8);
-        this.farmMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFE0 }); // Light Yellow
+        this.farmGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.8);
+        this.farmMaterial = new THREE.MeshStandardMaterial({ color: 0xF0E68C }); // Khaki
 
-        this.hunterGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        this.hunterGeometry = new THREE.ConeGeometry(0.5, 1.0, 4);
         this.hunterMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 }); // Forest Green
 
-        this.barracksGeometry = new THREE.BoxGeometry(1.2, 1.0, 1.2);
+        this.barracksGeometry = new THREE.BoxGeometry(1.2, 0.8, 1.2);
         this.barracksMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 }); // Dark Red
 
-        this.trapGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.8);
-        this.trapMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 }); // Dark Grey Spikes
+        this.trapGeometry = new THREE.ConeGeometry(0.2, 0.4, 4);
+        this.trapMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Dark Grey
 
         // Instanced Mesh for Walls
         this.maxWalls = 1000;
         this.wallInstancedMesh = new THREE.InstancedMesh(this.wallGeometry, this.wallMaterial, this.maxWalls);
-        this.wallInstancedMesh.frustumCulled = false; // Prevent culling when instances move
+        this.wallInstancedMesh.castShadow = true;
+        this.wallInstancedMesh.receiveShadow = true;
+        this.wallInstancedMesh.frustumCulled = false;
         this.scene.add(this.wallInstancedMesh);
 
         // Free indices stack for recycling
@@ -62,7 +65,7 @@ export class BuildingManager {
 
         // Matrix to hide unused instances
         const dummy = new THREE.Object3D();
-        dummy.position.set(0, -100, 0); // Hide below ground
+        dummy.position.set(0, -100, 0);
         dummy.updateMatrix();
         for (let i = 0; i < this.maxWalls; i++) {
             this.wallInstancedMesh.setMatrixAt(i, dummy.matrix);
@@ -81,7 +84,7 @@ export class BuildingManager {
             'hunter': { wood: 20, gold: 0 },
             'barracks': { wood: 100, gold: 0, stone: 50 },
             'trap': { wood: 10, gold: 0 },
-            'towncenter': { wood: 0, gold: 0 } // Free, initial placement
+            'towncenter': { wood: 0, gold: 0 }
         };
 
         // Stats
@@ -95,7 +98,7 @@ export class BuildingManager {
             'farm': { hp: 30, maxWorkers: 5 },
             'hunter': { hp: 40, maxWorkers: 5 },
             'barracks': { hp: 100 },
-            'trap': { hp: 10, damage: 5 }, // Traps break easily? or indestructible? Let's say low HP but enemies walk over them.
+            'trap': { hp: 10, damage: 5 },
             'towncenter': { hp: 500 }
         };
 
@@ -112,41 +115,40 @@ export class BuildingManager {
         const cost = this.costs[type];
         if (!cost) return;
 
+        // Check availability first
+        if (type === 'wall' && this.wallFreeIndices.length === 0) {
+            console.log("Max walls reached");
+            return;
+        }
+
         if (this.resourceManager.pay(cost)) {
             const pos = this.grid.gridToWorld(x, y);
             let mesh;
 
             if (type === 'wall') {
-                if (this.wallFreeIndices.length > 0) {
-                    const instanceId = this.wallFreeIndices.pop();
+                const instanceId = this.wallFreeIndices.pop();
 
-                    const dummy = new THREE.Object3D();
-                    dummy.position.set(pos.x, 0.5, pos.z);
-                    dummy.updateMatrix();
-                    this.wallInstancedMesh.setMatrixAt(instanceId, dummy.matrix);
-                    this.wallInstancedMesh.instanceMatrix.needsUpdate = true;
+                const dummy = new THREE.Object3D();
+                dummy.position.set(pos.x, 0.5, pos.z);
+                dummy.updateMatrix();
+                this.wallInstancedMesh.setMatrixAt(instanceId, dummy.matrix);
+                this.wallInstancedMesh.instanceMatrix.needsUpdate = true;
 
-                    // Add logic object
-                     const building = {
-                        type: type,
-                        x: x,
-                        y: y,
-                        instanceId: instanceId, // Track instance ID
-                        isInstanced: true,
-                        hp: this.stats[type].hp,
-                        maxHp: this.stats[type].hp
-                    };
-                    this.buildings.push(building);
-                    this.grid.setTile(x, y, 1);
-                    console.log(`Placed ${type} at ${x}, ${y}`);
-                    return; // Return early as we handled it
-                } else {
-                     console.log("Max walls reached");
-                     return;
-                }
+                 const building = {
+                    type: type,
+                    x: x,
+                    y: y,
+                    instanceId: instanceId, // Track instance ID
+                    isInstanced: true,
+                    hp: this.stats[type].hp,
+                    maxHp: this.stats[type].hp
+                };
+                this.buildings.push(building);
+                this.grid.setTile(x, y, 1);
+                return;
             } else if (type === 'house') {
                 mesh = new THREE.Mesh(this.houseGeometry, this.houseMaterial);
-                mesh.position.set(pos.x, 0.4, pos.z);
+                mesh.position.set(pos.x, 0, pos.z); // Geometry has offset
                 this.resourceManager.maxPopulation += 2;
                 this.resourceManager.updateUI();
             } else if (type === 'mill') {
@@ -169,16 +171,18 @@ export class BuildingManager {
                 mesh.position.set(pos.x, 0.1, pos.z);
             } else if (type === 'hunter') {
                 mesh = new THREE.Mesh(this.hunterGeometry, this.hunterMaterial);
-                mesh.position.set(pos.x, 0.4, pos.z);
+                mesh.position.set(pos.x, 0.5, pos.z);
             } else if (type === 'barracks') {
                 mesh = new THREE.Mesh(this.barracksGeometry, this.barracksMaterial);
-                mesh.position.set(pos.x, 0.5, pos.z);
+                mesh.position.set(pos.x, 0.4, pos.z);
             } else if (type === 'trap') {
                 mesh = new THREE.Mesh(this.trapGeometry, this.trapMaterial);
-                mesh.position.set(pos.x, 0.05, pos.z); // Low on ground
+                mesh.position.set(pos.x, 0.2, pos.z);
             }
 
             if (mesh) {
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
                 this.scene.add(mesh);
                 this.grid.setTile(x, y, 1);
 
@@ -197,11 +201,7 @@ export class BuildingManager {
                     cooldown: 0
                 };
                 this.buildings.push(building);
-
-                console.log(`Placed ${type} at ${x}, ${y}`);
             }
-        } else {
-            console.log("Not enough resources");
         }
     }
 
@@ -235,7 +235,6 @@ export class BuildingManager {
 
         this.grid.setTile(building.x, building.y, 0); // Reset to Grass
         this.buildings = this.buildings.filter(b => b !== building);
-        console.log(`Building destroyed at ${building.x}, ${building.y}`);
 
         if (building.type === 'towncenter') {
             const gameOver = document.getElementById('game-over');
@@ -253,12 +252,7 @@ export class BuildingManager {
             if (dist < 0.5 || p.mesh.position.y < 0) { // Hit
                 this.scene.remove(p.mesh);
                 this.projectiles.splice(i, 1);
-                // Damage?
-                // Logic was: Tower fires instantly.
-                // We should move damage logic here if we want projectile to carry damage.
-                // But `enemies` list reference is tricky to match back to specific enemy object unless we store ID.
-                // For "visuals only" projectile, we keep damage instant or pass enemy ref.
-                // Let's pass enemy ref.
+
                 if (p.enemy && p.enemy.hp > 0) {
                     p.enemy.hp -= p.damage;
                     if (this.particleSystem) {
@@ -271,8 +265,6 @@ export class BuildingManager {
         }
 
         // Traps logic
-        // Traps don't fire, they wait for collision.
-        // We could check collisions here if we have enemies list.
         if (enemies) {
              const traps = this.buildings.filter(b => b.type === 'trap');
              traps.forEach(trap => {
@@ -282,10 +274,7 @@ export class BuildingManager {
                      const dist = trapPos.distanceTo(enemyPos);
                      if (dist < 0.5) { // Collision
                          if (!enemy.hp) enemy.hp = 20;
-                         enemy.hp -= this.stats['trap'].damage * delta * 60; // Instant damage frame based? Or DPS?
-                         // Let's make it DPS if they stand on it.
-                         // Or "Trigger once".
-                         // For simplicity, DPS.
+                         enemy.hp -= this.stats['trap'].damage * delta * 60;
                      }
                  });
              });
@@ -311,7 +300,6 @@ export class BuildingManager {
         let closestDist = Infinity;
 
         for (const enemy of enemies) {
-            // Enemy structure changed to InstancedMesh, but we kept worldPos in logic object.
             const enemyPos = enemy.worldPos; // Logic position
             const dist = towerPos.distanceTo(enemyPos);
             if (dist <= tower.range && dist < closestDist) {
@@ -334,9 +322,7 @@ export class BuildingManager {
 
         this.projectiles.push({
             mesh: mesh,
-            target: enemy.worldPos, // This is a Vector3 reference, so it updates if enemy moves?
-            // Wait, worldPos in enemy logic is updated. Yes.
-            // But if enemy dies, worldPos might be stale or recycled.
+            target: enemy.worldPos,
             enemy: enemy,
             damage: damage
         });
