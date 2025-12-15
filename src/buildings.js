@@ -24,11 +24,23 @@ export class BuildingManager {
         this.townCenterGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
         this.townCenterMaterial = new THREE.MeshStandardMaterial({ color: 0x0000FF }); // Blue
 
+        this.goldMineGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        this.goldMineMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 }); // Gold
+
+        this.trapGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.8);
+        this.trapMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 }); // Dark Grey Spikes
+
         // Instanced Mesh for Walls
         this.maxWalls = 1000;
         this.wallInstancedMesh = new THREE.InstancedMesh(this.wallGeometry, this.wallMaterial, this.maxWalls);
         this.scene.add(this.wallInstancedMesh);
-        this.wallCount = 0;
+
+        // Free indices stack for recycling
+        this.wallFreeIndices = [];
+        for (let i = 0; i < this.maxWalls; i++) {
+            this.wallFreeIndices.push(i);
+        }
+
         // Matrix to hide unused instances
         const dummy = new THREE.Object3D();
         dummy.position.set(0, -100, 0); // Hide below ground
@@ -44,6 +56,8 @@ export class BuildingManager {
             'mill': { wood: 0, gold: 50 },
             'wall': { wood: 5, gold: 0 },
             'tower': { wood: 20, gold: 10 },
+            'goldmine': { wood: 50, gold: 0 },
+            'trap': { wood: 10, gold: 0 },
             'towncenter': { wood: 0, gold: 0 } // Free, initial placement
         };
 
@@ -53,6 +67,8 @@ export class BuildingManager {
             'mill': { hp: 50 },
             'wall': { hp: 100 },
             'tower': { hp: 80, range: 5, damage: 10, fireRate: 1.0 },
+            'goldmine': { hp: 50 },
+            'trap': { hp: 10, damage: 5 }, // Traps break easily? or indestructible? Let's say low HP but enemies walk over them.
             'towncenter': { hp: 500 }
         };
 
@@ -72,18 +88,14 @@ export class BuildingManager {
             let mesh;
 
             if (type === 'wall') {
-                if (this.wallCount < this.maxWalls) {
+                if (this.wallFreeIndices.length > 0) {
+                    const instanceId = this.wallFreeIndices.pop();
+
                     const dummy = new THREE.Object3D();
                     dummy.position.set(pos.x, 0.5, pos.z);
                     dummy.updateMatrix();
-                    this.wallInstancedMesh.setMatrixAt(this.wallCount, dummy.matrix);
+                    this.wallInstancedMesh.setMatrixAt(instanceId, dummy.matrix);
                     this.wallInstancedMesh.instanceMatrix.needsUpdate = true;
-
-                    // We don't create a mesh for scene.add, but we need an object for game logic?
-                    // Game logic tracks buildings in `this.buildings`.
-                    // We need a way to map logic object to instance index.
-                    const instanceId = this.wallCount;
-                    this.wallCount++;
 
                     // Add logic object
                      const building = {
@@ -117,6 +129,12 @@ export class BuildingManager {
             } else if (type === 'towncenter') {
                 mesh = new THREE.Mesh(this.townCenterGeometry, this.townCenterMaterial);
                 mesh.position.set(pos.x, 0.75, pos.z);
+            } else if (type === 'goldmine') {
+                mesh = new THREE.Mesh(this.goldMineGeometry, this.goldMineMaterial);
+                mesh.position.set(pos.x, 0.4, pos.z);
+            } else if (type === 'trap') {
+                mesh = new THREE.Mesh(this.trapGeometry, this.trapMaterial);
+                mesh.position.set(pos.x, 0.05, pos.z); // Low on ground
             }
 
             if (mesh) {
@@ -165,6 +183,9 @@ export class BuildingManager {
                  dummy.updateMatrix();
                  this.wallInstancedMesh.setMatrixAt(building.instanceId, dummy.matrix);
                  this.wallInstancedMesh.instanceMatrix.needsUpdate = true;
+
+                 // Recycle index
+                 this.wallFreeIndices.push(building.instanceId);
              }
         } else {
             this.scene.remove(building.mesh);
@@ -182,10 +203,36 @@ export class BuildingManager {
     }
 
     update(delta, enemies) {
-        // Handle passive income from mills
+        // Handle passive income from mills and goldmines
         const mills = this.buildings.filter(b => b.type === 'mill').length;
         if (mills > 0) {
             this.resourceManager.addResource('wood', mills * delta);
+        }
+
+        const goldmines = this.buildings.filter(b => b.type === 'goldmine').length;
+        if (goldmines > 0) {
+            this.resourceManager.addResource('gold', goldmines * delta);
+        }
+
+        // Traps logic
+        // Traps don't fire, they wait for collision.
+        // We could check collisions here if we have enemies list.
+        if (enemies) {
+             const traps = this.buildings.filter(b => b.type === 'trap');
+             traps.forEach(trap => {
+                 const trapPos = new THREE.Vector3(trap.mesh.position.x, 0, trap.mesh.position.z);
+                 enemies.forEach(enemy => {
+                     const enemyPos = enemy.worldPos;
+                     const dist = trapPos.distanceTo(enemyPos);
+                     if (dist < 0.5) { // Collision
+                         if (!enemy.hp) enemy.hp = 20;
+                         enemy.hp -= this.stats['trap'].damage * delta * 60; // Instant damage frame based? Or DPS?
+                         // Let's make it DPS if they stand on it.
+                         // Or "Trigger once".
+                         // For simplicity, DPS.
+                     }
+                 });
+             });
         }
 
         // Handle Towers firing

@@ -15,7 +15,7 @@ scene.background = new THREE.Color(0x87CEEB); // Day sky
 
 // Camera setup
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 20, 20); // Top-down angled view
+camera.position.set(0, 40, 40); // Top-down angled view, zoomed out for bigger map
 camera.lookAt(0, 0, 0);
 
 // Renderer setup
@@ -32,7 +32,7 @@ dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
 
 // Grid
-const grid = new Grid(scene, 20, 20); // 20x20 grid
+const grid = new Grid(scene, 50, 50); // 50x50 grid
 
 // Resources
 const resourceManager = new ResourceManager();
@@ -82,6 +82,8 @@ document.getElementById('btn-house').addEventListener('click', () => selectedBui
 document.getElementById('btn-mill').addEventListener('click', () => selectedBuilding = 'mill');
 document.getElementById('btn-wall').addEventListener('click', () => selectedBuilding = 'wall');
 document.getElementById('btn-tower').addEventListener('click', () => selectedBuilding = 'tower');
+document.getElementById('btn-goldmine').addEventListener('click', () => selectedBuilding = 'goldmine');
+document.getElementById('btn-trap').addEventListener('click', () => selectedBuilding = 'trap');
 
 // Window resize
 window.addEventListener('resize', () => {
