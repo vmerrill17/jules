@@ -67,7 +67,7 @@ const particleSystem = new ParticleSystem(scene);
 const buildingManager = new BuildingManager(scene, grid, resourceManager, particleSystem);
 const enemyManager = new EnemyManager(scene, grid, buildingManager, particleSystem);
 const villagerManager = new VillagerManager(scene, grid, resourceManager, buildingManager);
-const soldierManager = new SoldierManager(scene, grid, enemyManager);
+const soldierManager = new SoldierManager(scene, grid, enemyManager, resourceManager);
 const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
 
 // Selection

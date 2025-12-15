@@ -2,10 +2,11 @@
 import * as THREE from 'three';
 
 export class SoldierManager {
-    constructor(scene, grid, enemyManager) {
+    constructor(scene, grid, enemyManager, resourceManager) {
         this.scene = scene;
         this.grid = grid;
         this.enemyManager = enemyManager;
+        this.resourceManager = resourceManager;
         this.soldiers = [];
         this.maxSoldiers = 100;
 
@@ -35,6 +36,11 @@ export class SoldierManager {
 
     trainSoldier(barracks) {
         if (this.freeIndices.length === 0) return;
+
+        const cost = { food: 50, gold: 20 };
+        if (this.resourceManager && !this.resourceManager.pay(cost)) {
+            return;
+        }
 
         const instanceId = this.freeIndices.pop();
         const startPos = this.grid.gridToWorld(barracks.x, barracks.y);

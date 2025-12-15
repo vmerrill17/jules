@@ -217,7 +217,39 @@ export class EnemyManager {
             } else {
                 this.moveEnemy(enemy, flow, delta);
             }
+        } else {
+            // Path blocked or target reached (but target is center, so if no flow, we might be stuck behind a wall)
+            // Search for nearest building (wall) and attack it.
+            const nearestBuilding = this.findNearestBuilding(enemy.x, enemy.y, 2); // Check radius 2
+            if (nearestBuilding) {
+                // Check if close enough to attack
+                // If adjacent
+                 const dist = Math.abs(nearestBuilding.x - enemy.x) + Math.abs(nearestBuilding.y - enemy.y);
+                 if (dist <= 1) {
+                      let dmg = 10 * delta;
+                      if (enemy.type === 'siege') dmg *= enemy.bonusVsWalls;
+                      this.attackBuilding(enemy, nearestBuilding, dmg);
+                 } else {
+                     // Should verify this logic.
+                     // If we are stuck, we want to hit the thing blocking us.
+                     // This is a simple fallback.
+                 }
+            }
         }
+    }
+
+    findNearestBuilding(x, y, radius) {
+        for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const tx = x + dx;
+                const ty = y + dy;
+                if (this.grid.isValid(tx, ty) && this.grid.getTile(tx, ty) === 1) {
+                    return this.buildingManager.getBuildingAt(tx, ty);
+                }
+            }
+        }
+        return null;
     }
 
     updateRanged(enemy, delta) {

@@ -36,7 +36,12 @@
     display: flex;
     flex-wrap: wrap; /* Wrap buttons if screen is small */
     gap: 10px;
-    justify-content: center;
+    justify-content: flex-start; /* Align left to avoid overlap if centered pushes right */
+    pointer-events: none; /* Container passes clicks */
+}
+
+#controls button {
+    pointer-events: auto; /* Buttons catch clicks */
 }
 
 button {
