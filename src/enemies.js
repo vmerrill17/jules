@@ -24,6 +24,7 @@ export class EnemyManager {
         // Instanced Mesh for Enemies
         this.maxEnemies = 1000;
         this.enemyInstancedMesh = new THREE.InstancedMesh(this.enemyGeometry, this.enemyMaterial, this.maxEnemies);
+        this.enemyInstancedMesh.frustumCulled = false; // Prevent culling when instances move
         this.scene.add(this.enemyInstancedMesh);
 
         // Initialize all instances to hidden

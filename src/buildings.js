@@ -33,6 +33,7 @@ export class BuildingManager {
         // Instanced Mesh for Walls
         this.maxWalls = 1000;
         this.wallInstancedMesh = new THREE.InstancedMesh(this.wallGeometry, this.wallMaterial, this.maxWalls);
+        this.wallInstancedMesh.frustumCulled = false; // Prevent culling when instances move
         this.scene.add(this.wallInstancedMesh);
 
         // Free indices stack for recycling
