@@ -10,6 +10,7 @@ import { CameraControls } from './controls.js';
 import { ResourceManager } from './resources.js';
 import { ParticleSystem } from './particles.js';
 import { SelectionManager } from './selection.js';
+import { InteractionManager } from './interaction.js';
 
 console.log('Game starting...');
 
@@ -68,49 +69,24 @@ const gameLoop = new GameLoop(scene, grid, resourceManager, enemyManager);
 // Selection
 const selectionManager = new SelectionManager(scene, camera, grid, buildingManager, villagerManager, soldierManager);
 
+// Interaction
+const interactionManager = new InteractionManager(scene, camera, grid, buildingManager, selectionManager);
+interactionManager.setTool('wall'); // Default tool
+
 // Controls
 const controls = new CameraControls(camera, renderer.domElement);
 
-// Input handling
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-const highlightMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1, 1),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
-);
-highlightMesh.rotation.x = -Math.PI / 2;
-scene.add(highlightMesh);
-
-window.addEventListener('mousemove', (event) => {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-});
-
-window.addEventListener('mousedown', (event) => {
-    if (event.target.tagName !== 'CANVAS') return; // Ignore clicks on UI
-
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(grid.plane);
-
-    if (intersects.length > 0) {
-        const point = intersects[0].point;
-        const gridPos = grid.worldToGrid(point.x, point.z);
-        // Place selected building
-        buildingManager.placeBuilding(gridPos.x, gridPos.y, selectedBuilding);
-    }
-});
-
-let selectedBuilding = 'wall';
-document.getElementById('btn-house').addEventListener('click', () => selectedBuilding = 'house');
-document.getElementById('btn-mill').addEventListener('click', () => selectedBuilding = 'mill');
-document.getElementById('btn-wall').addEventListener('click', () => selectedBuilding = 'wall');
-document.getElementById('btn-tower').addEventListener('click', () => selectedBuilding = 'tower');
-document.getElementById('btn-goldmine').addEventListener('click', () => selectedBuilding = 'goldmine');
-document.getElementById('btn-quarry').addEventListener('click', () => selectedBuilding = 'quarry');
-document.getElementById('btn-farm').addEventListener('click', () => selectedBuilding = 'farm');
-document.getElementById('btn-hunter').addEventListener('click', () => selectedBuilding = 'hunter');
-document.getElementById('btn-barracks').addEventListener('click', () => selectedBuilding = 'barracks');
-document.getElementById('btn-trap').addEventListener('click', () => selectedBuilding = 'trap');
+// UI bindings
+document.getElementById('btn-house').addEventListener('click', () => interactionManager.setTool('house'));
+document.getElementById('btn-mill').addEventListener('click', () => interactionManager.setTool('mill'));
+document.getElementById('btn-wall').addEventListener('click', () => interactionManager.setTool('wall'));
+document.getElementById('btn-tower').addEventListener('click', () => interactionManager.setTool('tower'));
+document.getElementById('btn-goldmine').addEventListener('click', () => interactionManager.setTool('goldmine'));
+document.getElementById('btn-quarry').addEventListener('click', () => interactionManager.setTool('quarry'));
+document.getElementById('btn-farm').addEventListener('click', () => interactionManager.setTool('farm'));
+document.getElementById('btn-hunter').addEventListener('click', () => interactionManager.setTool('hunter'));
+document.getElementById('btn-barracks').addEventListener('click', () => interactionManager.setTool('barracks'));
+document.getElementById('btn-trap').addEventListener('click', () => interactionManager.setTool('trap'));
 
 // Window resize
 window.addEventListener('resize', () => {
@@ -136,16 +112,7 @@ function animate() {
     particleSystem.update(delta);
 
     controls.update(delta);
-
-    // Raycast for highlight
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(grid.plane);
-    if (intersects.length > 0) {
-        const point = intersects[0].point;
-        const gridPos = grid.worldToGrid(point.x, point.z);
-        const worldPos = grid.gridToWorld(gridPos.x, gridPos.y);
-        highlightMesh.position.set(worldPos.x, 0.01, worldPos.z);
-    }
+    interactionManager.update(delta);
 
     renderer.render(scene, camera);
 }
