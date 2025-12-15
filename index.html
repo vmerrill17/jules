@@ -3,46 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Build by Day, Survive by Night</title>
-    <link rel="stylesheet" href="style.css">
+    <title>3D Racing Game</title>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
     </style>
 </head>
 <body>
-    <div id="ui-container">
-        <div id="resources">
-            <span>Wood: <span id="wood-count">0</span></span>
-            <span>Gold: <span id="gold-count">0</span></span>
-            <span>Stone: <span id="stone-count">0</span></span>
-            <span>Food: <span id="food-count">0</span></span>
-            <span>Pop: <span id="pop-count">0</span></span>
-        </div>
-        <div id="timer">Phase: <span id="phase-name">Day</span> | Time: <span id="time-remaining">00:00</span></div>
-        <div id="controls">
-            <button id="btn-house">House (10W)</button>
-            <button id="btn-mill">Mill (50G)</button>
-            <button id="btn-goldmine">Mine (50W)</button>
-            <button id="btn-quarry">Quarry (50W)</button>
-            <button id="btn-farm">Farm (30W)</button>
-            <button id="btn-hunter">Hunter (20W)</button>
-            <button id="btn-barracks">Barracks (100W, 50S)</button>
-            <button id="btn-wall">Wall (5W)</button>
-            <button id="btn-tower">Tower (20W, 10G)</button>
-            <button id="btn-trap">Trap (10W)</button>
-            <button id="btn-night">Start Night</button>
-        </div>
-    </div>
-        <div id="selection-panel">
-            <div id="selection-info"></div>
-            <div id="selection-actions"></div>
-        </div>
-
-    <div id="game-over" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 100;">
-        <h1>GAME OVER</h1>
-        <button onclick="window.location.reload()" style="padding: 20px; font-size: 2em; cursor: pointer;">Restart</button>
-    </div>
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>
