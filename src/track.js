@@ -78,8 +78,8 @@ export class Track {
         // Track Shape
         const shape = new THREE.Shape();
         shape.moveTo(-this.trackWidth/2, 0);
-        shape.lineTo(-this.trackWidth/2, 0.5);
-        shape.lineTo(this.trackWidth/2, 0.5);
+        shape.lineTo(-this.trackWidth/2, 0.05); // Thin profile
+        shape.lineTo(this.trackWidth/2, 0.05);
         shape.lineTo(this.trackWidth/2, 0);
         shape.lineTo(-this.trackWidth/2, 0);
 
@@ -89,7 +89,7 @@ export class Track {
 
         this.currentMesh = new THREE.Mesh(geometry, material);
         this.currentMesh.receiveShadow = true;
-        this.currentMesh.position.y = 0.1;
+        this.currentMesh.position.y = 0.02; // Just above ground
         this.scene.add(this.currentMesh);
 
         this.addDecorations();

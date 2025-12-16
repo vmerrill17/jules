@@ -15,7 +15,11 @@ export class Car {
         // Vectors
         this.velocity = new THREE.Vector3();
         this.heading = 0; // Radians
-        this.position = new THREE.Vector3(0, 0.5, 0);
+        // Surface at ~0.02 + 0.05 = 0.07. Wheels rad 0.4.
+        // Wheel center at 0.47.
+        // Car mesh origin is center of wheels (roughly).
+        // If wheel local y=0.4, then mesh y should be 0.07.
+        this.position = new THREE.Vector3(0, 0.1, 0);
 
         this.createMesh();
     }

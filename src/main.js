@@ -62,7 +62,7 @@ function startGame(trackType) {
         const offsetZ = (i+1) * -8;
         const offsetX = ((i % 2) === 0 ? 5 : -5);
 
-        ai.reset(new THREE.Vector3(track.startPoint.x + offsetX, 0.5, track.startPoint.z + offsetZ));
+        ai.reset(new THREE.Vector3(track.startPoint.x + offsetX, 0.1, track.startPoint.z + offsetZ));
         aiCars.push(ai);
     }
 
